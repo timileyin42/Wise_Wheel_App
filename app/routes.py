@@ -9,6 +9,7 @@ from app.forms import RegistrationForm, LoginForm, RentalForm, VerifyTokenForm, 
 from app.models import User, Car, Rental
 from flask_login import login_user, current_user, logout_user, login_required
 from config import Config
+from twilio.rest import Client
 
 account_sid = Config.TWILIO_ACCOUNT_SID
 auth_token = Config.TWILIO_AUTH_TOKEN
@@ -121,11 +122,11 @@ def payment(car_id):
     car = Car.query.get_or_404(car_id)
     return render_template('payment.html', car=car, public_key=Config.PAYSTACK_PUBLIC_KEY)
 
-@main.route("/verify_token", methods=['GET', 'POST'])
+@main.route("/verify_token", methods=['POST'])
 @login_required
 def verify_token():
     """
-    Verifies the Authy token sent via SMS to the user's phone.
+    Verifies the twilio token sent via SMS to the user's phone.
 
     On POST, validates the token against the user's Authy ID. Upon successful verification, redirects to the home page.
     Requires the user to be logged in.
