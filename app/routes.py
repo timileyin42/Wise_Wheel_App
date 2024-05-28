@@ -134,17 +134,16 @@ def verify_token():
     form = VerifyTokenForm()
     if form.validate_on_submit():
         token = form.token.data
-        authy_api = AuthyApiClient(Config.AUTHY_API_KEY)
-        try:
-            response = authy_api.tokens.verify(current_user.authy_id, token)
-            if response.ok():
+        verification_check = client.verify \
+                               .services(Config.VERIFY_SERVICE_ID) \
+                               .verification_checks \
+                               .create(to=phone_number, code=token)
+
+        if verification_check.status == "approved":
                 flash('Token verified successfully!', 'success')
                 return redirect(url_for('main.home'))
             else:
                 flash('Failed to verify token.', 'error')
-        except Exception as e:
-            flash('An error occurred while verifying the token.', 'try again!')
-            print(e)
     return render_template('verify_token.html', form=form)
 
 @main.route("/create-checkout-session/<int:car_id>", methods=['POST'])  
@@ -204,10 +203,12 @@ def send_token():
     Requires the user to be logged in.
     """
 
-    authy_api = Config.AUTHY_API_KEY
-    response = requests.post(f'https://api.authy.com/protected/json/sms/{current_user.authy_id}', headers={'X-Authy-API-Key': authy_api})
-    result = response.json()
-    if result['success']:
+    verification = client.verify \
+                   .services(Config.VERIFY_SERVICE_ID) \
+                   .verifications \
+                   .create(to=phone_number, channel="sms")
+
+    if verification.status == "queued":
         flash('Verification token sent to your phone.', 'info')
     else:
         flash('Failed to send verification token.', 'try again!')
