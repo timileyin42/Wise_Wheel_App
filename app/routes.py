@@ -10,6 +10,10 @@ from app.models import User, Car, Rental
 from flask_login import login_user, current_user, logout_user, login_required
 from config import Config
 
+account_sid = Config.TWILIO_ACCOUNT_SID
+auth_token = Config.TWILIO_AUTH_TOKEN
+client = Client(account_sid, auth_token)
+
 paystack_secret_key = Config.PAYSTACK_SECRET_KEY
 paystack.secret_key = paystack_secret_key
 main = Blueprint('main', __name__)
@@ -43,20 +47,18 @@ def register():
         db.session.add(user)
         db.session.commit()
 
-        authy_api = Config.AUTHY_API_KEY
-        response = requests.post('https://api.authy.com/protected/json/users/new', data={
-            'user[email]': user.email,
-            'user[cellphone]': form.phone.data,
-            'user[country_code]': 12
-        }, headers={'X-Authy-API-Key': authy_api})
-        result = response.json()
-        if result['success']:
-            user.authy_id = result['user']['id']
-            db.session.commit()
-            flash('Your account has been created! You are now able to log in', 'success')
-            return redirect(url_for('main.login'))
+        verification = client.verify \
+                       .services(Config.VERIFY_SERVICE_ID) \
+                       .verifications \
+                       .create(to=form.phone.data, channel="sms")
+
+
+        if verification.status == "queued":
+            flash('A verification code has been sent to your phone.', 'info')
         else:
-            flash('Failed to register with Authy', 'error')
+            flash('Failed to send verification code.', 'error')
+
+        return redirect(url_for('main.login'))
 
     return render_template('register.html', title='Register', form=form)
 
