@@ -5,7 +5,7 @@ from flask_login import LoginManager
 from flask_migrate import Migrate
 
 db = SQLAlchemy()
-bcrypt = None
+bcrypt = Bcrypt()
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
@@ -18,7 +18,7 @@ def create_app():
 
     migrate = Migrate(app, db)
 
-    bcrypt = Bcrypt(app)
+    bcrypt.init_app(app)
     login_manager.init_app(app)
 
     from app.routes import main
