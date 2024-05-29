@@ -49,7 +49,19 @@ def test_register(test_client):
         'phone': '08124799371'
     }, follow_redirects=True)
     assert response.status_code == 200
-    assert b'Verification token sent to your phone.' in response.data
+    assert b'Successful registration' in response.data
+
+def test_register_failure_invalid_data(test_client):
+    response = test_client.post(url_for('main.register'), data={
+        'username': 'Invalid Alex',
+        'email': 'invalid_email.com',
+        'password': '',
+        'confirm_password': '',
+        'phone':
+    }, follow_redirects=True)
+
+    assert response.status_code == 400
+    assert b'Error message indicating validation failure' in response.data
 
 def test_login(test_client, init_database):
     response = test_client.post(url_for('main.login'), data={
@@ -78,11 +90,15 @@ def test_create_checkout_session(test_client, init_database, login_default_user)
     assert b'id' in response.data
 
 def test_send_token(test_client, init_database, login_default_user):
+    login_default_user()
+
     response = test_client.post(url_for('main.send_token'), follow_redirects=True)
     assert response.status_code == 200
-    assert b'Verification token sent to your phone.' in response.data
+    assert b'Token sent successfully.' in response.data
 
 def test_verify_token(test_client, init_database, login_default_user):
+    login_default_user()
+
     response = test_client.post(url_for('main.verify_token'), data={
         'token': '123456'
     }, follow_redirects=True)
@@ -107,4 +123,3 @@ def test_google_calendar_integration(test_client):
     response = test_client.get(url_for('main.calendar'))
     assert response.status_code == 200
     assert b'Google Calendar Integration' in response.data
-
