@@ -2,7 +2,7 @@
 
 ## Project Description
 
-This is a comprehensive car rental web application built using the Flask framework. it allow user to Register, Log in, and book cars for rental. The applications integrate with several external APIs for authentication, payment processing, and location services
+This is a car rental web application built using the Flask framework. it allow user to Register, Log in, and book cars for rental. The applications integrate with several external APIs for authentication, payment processing, and location services
 
 ## Features
 
