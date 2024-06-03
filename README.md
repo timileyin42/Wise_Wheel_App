@@ -100,8 +100,8 @@ This is a comprehensive car rental web application built using the Flask framewo
 1. **Clone the repository:**
 
     ```bash
-    git clone https://github.com/yourusername/car_rental_app.git
-    cd car_rental_app
+    git clone https://github.com/timileyin42/Wise_Wheel_App.git
+    cd Wise_Wheel_App
     ```
 
 2. **Set up a virtual environment:**
