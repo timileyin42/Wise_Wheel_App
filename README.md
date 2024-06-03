@@ -108,7 +108,6 @@ This is a comprehensive car rental web application built using the Flask framewo
 
     ```bash
     python3 -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
     ```
 
 3. **Install the required packages:**
