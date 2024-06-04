@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Token | Car Rental</title>
+    <meta name="description" content="Enter your verification token to verify your account on Car Rental.">
+    <meta name="keywords" content="Car Rental, Verify Token, Account Verification">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="{{ url_for('main.home') }}">Home</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('main.login') }}">Login</a>
+                <a href="{{ url_for('main.register') }}">Register</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        <h1>Verify Token</h1>
+        <p>Please enter the verification token sent to your phone.</p>
+        <form method="POST" action="{{ url_for('main.verify_token') }}">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                {{ form.token.label(class="form-label") }}
+                {{ form.token(class="form-control") }}
+                {% if form.token.errors %}
+                    <div class="form-errors">
+                        {{ form.token.errors[0] }}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </main>
+
+    <footer>
+        <p>&copy; {{ current_year }} WiseWheel Car Rental. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+

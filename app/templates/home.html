@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Rental</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="{{ url_for('main.home') }}">Home</a>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.profile') }}">Profile</a>
+                <a href="{{ url_for('main.logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('main.login') }}">Login</a>
+                <a href="{{ url_for('main.register') }}">Register</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        <h1>Welcome to WiseWheel Car Rental</h1>
+        <h2>Available Cars</h2>
+        <div class="car-list">
+            {% for car in cars %}
+                <div class="car-item">
+                    <h3>{{ car.maker }} {{ car.model }} ({{ car.year }})</h3>
+                    <p>Price per day: ${{ car.price_per_day }}</p>
+                    {% if car.availability %}
+                        <p>Status: Available</p>
+                        <a href="{{ url_for('main.book_car', car_id=car.id) }}" class="btn">Book Now</a>
+                    {% else %}
+                        <p>Status: Not Available</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; {{ current_year }} WiseWheel Car Rental. All rights reserved.</p>
+    </footer>
+</body>
+</html>
