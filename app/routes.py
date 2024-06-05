@@ -120,6 +120,7 @@ def payment(car_id):
     """
 
     car = Car.query.get_or_404(car_id)
+    car_details = {'model': car.model, 'year': car.year, 'maker': car.maker, 'price_per_day': car.price_per_day}
     return render_template('payment.html', car=car, public_key=Config.PAYSTACK_PUBLIC_KEY)
 
 @main.route("/verify_token", methods=['POST'])

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ car.model }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
 </head>
 <body>
     <header>
@@ -29,7 +30,7 @@
             <h2>Book this Car</h2>
             <form method="POST" action="{{ url_for('main.car', car_id=car.id) }}">
                 {{ form.hidden_tag() }}
-                
+
                 <div class="form-group">
                     {{ form.start_date.label(class="form-label") }}
                     {{ form.start_date(class="form-control") }}
@@ -37,7 +38,7 @@
                         <span class="error">{{ error }}</span>
                     {% endfor %}
                 </div>
-                
+
                 <div class="form-group">
                     {{ form.end_date.label(class="form-label") }}
                     {{ form.end_date(class="form-control") }}
@@ -45,7 +46,7 @@
                         <span class="error">{{ error }}</span>
                     {% endfor %}
                 </div>
-                
+
                 <div class="form-group">
                     {{ form.submit(class="btn btn-primary") }}
                 </div>
@@ -60,3 +61,4 @@
     </footer>
 </body>
 </html>
+

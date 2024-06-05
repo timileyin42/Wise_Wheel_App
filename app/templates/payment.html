@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment for {{ car.car_details.model }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Payment for {{ car.model }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/payment.css') }}">
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script>
         function payWithPaystack() {
             var handler = PaystackPop.setup({
                 key: '{{ public_key }}', // Paystack public key
                 email: '{{ current_user.email }}', // User email
-                amount: {{ car.car_details.price_per_day * 100 }}, // Amount in kobo
+                amount: {{ car.price_per_day * 100 }}, // Amount in kobo
                 currency: "NGN",
                 ref: '' + Math.floor((Math.random() * 1000000000) + 1), // Reference
                 callback: function(response) {
@@ -41,8 +41,8 @@
     </header>
 
     <main>
-        <h1>Payment for {{ car.car_details.maker }} {{ car.car_details.model }} ({{ car.car_details.year }})</h1>
-        <p>Price per day: ${{ car.car_details.price_per_day }}</p>
+        <h1>Payment for {{ car.maker }} {{ car.model }} ({{ car.year }})</h1>
+        <p>Price per day: ${{ car.price_per_day }}</p>
         <button onclick="payWithPaystack()" class="btn btn-primary">Pay Now</button>
     </main>
 

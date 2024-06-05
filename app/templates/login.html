@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
 </head>
 <body>
     <header>
@@ -18,7 +19,7 @@
         <h1>Login</h1>
         <form method="POST" action="{{ url_for('main.login') }}">
             {{ form.hidden_tag() }}
-            
+
             <div class="form-group">
                 {{ form.email.label(class="form-label") }}
                 {{ form.email(class="form-control") }}
@@ -29,17 +30,24 @@
 
             <div class="form-group">
                 {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control") }}
+                <div class="input-group">
+                    {{ form.password(class="form-control") }}
+                    <div class="input-group-append">
+                        <span class="input-group-text" id="togglePassword" style="cursor: pointer;">
+                            <i class="fa fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
                 {% for error in form.password.errors %}
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             </div>
-            
+
             <div class="form-group form-check">
                 {{ form.remember(class="form-check-input") }}
                 {{ form.remember.label(class="form-check-label") }}
             </div>
-            
+
             <div class="form-group">
                 {{ form.submit(class="btn btn-primary") }}
             </div>
@@ -52,3 +60,4 @@
     </footer>
 </body>
 </html>
+
