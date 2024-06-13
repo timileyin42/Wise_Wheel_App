@@ -167,6 +167,10 @@ pytest
 - **Two-Factor Authentication:** Verify your identity using Twilio Authy.
 - **View Bookings:** Check your bookings and manage them using the integrated Google Calendar.
 
+## Purpose of the project
+
+The objective of the Wisewheels Auto Rentals initiative was to develop a user-centric, easy-to-navigate online car rental platform designed to simplify the vehicle rental process for users. This website is crafted to offer a smooth journey, from initial exploration of available cars to the completion of the rental transaction, emphasizing simplicity and speed throughout the entire process
+
 ## Personal Story
 
 My enthusiasm for crafting web applications centered around the needs of users originated from a deeply personal encounter. Prior to joining ALX, I was, and still a student actively participating in numerous extracurricular activities. My social life often found me venturing out frequently, navigating the bustling streets of Lagos, a metropolis known for its public transport challenges. Each outing presented its own set of transportation hurdles—long waits at bus stops, unreliable ride-sharing services, and the inconvenience of reaching destinations efficiently. These experiences highlighted the need for innovative solutions to bridge the gap between the difficulties of public transit and the convenience of personal travel. This realization sparked my determination to leverage technology to address these issues, leading me to pursue a career in web development.
