@@ -2,7 +2,7 @@ import os
 import requests
 import paystack
 import json
-from authy.api import AuthyApiClient, AuthyAPIError, AuthenticationError, ConnectionError
+from authy.api import AuthyApiClient
 from flask import render_template, url_for, flash, redirect, request, jsonify, Blueprint
 from app import db, bcrypt
 from app.forms import RegistrationForm, LoginForm, RentalForm, VerifyTokenForm, PaymentForm
@@ -49,9 +49,9 @@ def register():
         db.session.commit()
 
         verification = client.verify \
-                       .services(Config.VERIFY_SERVICE_ID) \
-                       .verifications \
-                       .create(to=form.phone.data, channel="sms")
+                .services(Config.VERIFY_SERVICE_ID) \
+                .verifications \
+                .create(to=form.phone.data, channel="sms")
 
 
         if verification.status == "queued":
@@ -137,15 +137,16 @@ def verify_token():
     if form.validate_on_submit():
         token = form.token.data
         verification_check = client.verify \
-                               .services(Config.VERIFY_SERVICE_ID) \
-                               .verification_checks \
-                               .create(to=phone_number, code=token)
+            .services(Config.VERIFY_SERVICE_ID) \
+            .verification_checks \
+            .create(to=phone_number, code=token)
 
         if verification_check.status == "approved":
-                flash('Token verified successfully!', 'success')
-                return redirect(url_for('main.home'))
-            else:
-                flash('Failed to verify token.', 'error')
+            flash('Token verified successfully!', 'success')
+            return redirect(url_for('main.home'))
+        else:
+            flash('Failed to verify token.', 'error')
+
     return render_template('verify_token.html', form=form)
 
 @main.route("/create-checkout-session/<int:car_id>", methods=['POST'])  
@@ -160,9 +161,9 @@ def create_checkout_session(car_id):
 
     car = Car.query.get_or_404(car_id)
     session = paystack.Transaction.initialize(reference=f'car_{car.id}',
-                                               amount=int(car.price_per_day * 100),
-                                               email=current_user.email,
-                                               callback_url=url_for('main.success', car_id=car.id, _external=True))
+            amount=int(car.price_per_day * 100),
+            email=current_user.email,
+            callback_url=url_for('main.success', car_id=car.id, _external=True))
     return jsonify({'id': session['data']['reference']})
 
 @main.route("/success/<int:car_id>")
@@ -206,9 +207,9 @@ def send_token():
     """
 
     verification = client.verify \
-                   .services(Config.VERIFY_SERVICE_ID) \
-                   .verifications \
-                   .create(to=phone_number, channel="sms")
+            .services(Config.VERIFY_SERVICE_ID) \
+            .verifications \
+            .create(to=phone_number, channel="sms")
 
     if verification.status == "queued":
         flash('Verification token sent to your phone.', 'info')
