@@ -5,26 +5,31 @@ from wtforms.validators import DataRequired, Length, Email, EqualTo, Regexp
 class RegistrationForm(FlaskForm):
     """
     Form for user registration.
-    
+
     Fields:
     - username: A string with minimum length of 2 and maximum length of 20 characters.
     - email: A string that must contain a valid email address.
     - password: A string that must meet the DataRequired validator.
     - confirm_password: Must be equal to the password field.
-    - phone: A string with minimum length of 10 and maximum length of 15 characters, validated against a regular expression for phone number format.
+    - phone: A string with minimum length of 10 and maximum length of 15 characters, validated against a regular expression for E.164 phone number format.
     - submit: A submit button labeled "Sign Up".
     """
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
-    phone = StringField('Phone', validators=[DataRequired(), Length(min=10, max=15), Regexp(r'^\d{10,15}$')])
+    phone = StringField('Phone', validators=[
+        DataRequired(),
+        Length(min=10, max=15),
+        Regexp(r'^\+?[1-9]\d{9,14}$', message="Invalid phone number format.")
+    ])
     submit = SubmitField('Sign Up')
+
 
 class LoginForm(FlaskForm):
     """
     Form for user login.
-    
+
     Fields:
     - email: A string that must contain a valid email address.
     - password: A string that must meet the DataRequired validator.
@@ -39,7 +44,7 @@ class LoginForm(FlaskForm):
 class RentalForm(FlaskForm):
     """
     Form for booking a car rental.
-    
+
     Fields:
     - start_date: A date field for the start date of the rental, required.
     - end_date: A date field for the end date of the rental, required.
@@ -52,7 +57,7 @@ class RentalForm(FlaskForm):
 class VerifyTokenForm(FlaskForm):
     """
     Form for verifying a token.
-    
+
     Fields:
     - token: An integer field for the token to be verified, required.
     - submit: A submit button labeled "Verify".
@@ -63,7 +68,7 @@ class VerifyTokenForm(FlaskForm):
 class PaymentForm(FlaskForm):
     """
     Form for processing payments.
-    
+
     Fields:
     - card_number: A string field for the card number, required, with a length constraint of exactly 16 characters.
     - expiry_date: A string field for the card's expiry date, required, with a length constraint of exactly 5 characters (MM/YY).

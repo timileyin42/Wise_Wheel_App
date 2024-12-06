@@ -11,7 +11,7 @@ login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder='templates', static_folder='static')
     app.config.from_object('config.Config')
 
     db.init_app(app)
@@ -22,7 +22,7 @@ def create_app():
     login_manager.init_app(app)
 
     from app.routes import main
-    app.register_blueprint(main)
+    app.register_blueprint(main, template_folder='../templates', static_folder='../static')
 
     return app
 

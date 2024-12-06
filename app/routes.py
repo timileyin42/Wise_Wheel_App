@@ -17,7 +17,7 @@ client = Client(account_sid, auth_token)
 
 paystack_secret_key = Config.PAYSTACK_SECRET_KEY
 paystack.secret_key = paystack_secret_key
-main = Blueprint('main', __name__)
+main = Blueprint('main', __name__, template_folder='../templates', static_folder='../static')
 
 @main.route("/")
 @main.route("/home")
@@ -32,36 +32,72 @@ def home():
 
 @main.route("/register", methods=['GET', 'POST'])
 def register():
-    """
-    Handles user registration.
-
-    On GET, displays the registration form. On POST, validates the form data, creates a new user,
-    registers the user with Authy for SMS verification, and redirects to the login page upon successful registration.
-    """
-
     if current_user.is_authenticated:
         return redirect(url_for('main.home'))
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-        user = User(username=form.username.data, email=form.email.data, password=hashed_password)
-        db.session.add(user)
-        db.session.commit()
 
-        verification = client.verify \
+    form = RegistrationForm()
+
+    if form.validate_on_submit():
+        print("Form is valid.")
+
+        # Check for duplicate username and email
+        existing_user = User.query.filter_by(username=form.username.data).first()
+        print(f"Checking username: {existing_user}")
+
+        if existing_user:
+            flash('Username is already taken.', 'danger')
+            print("Duplicate username found.")
+            return render_template('register.html', title='Register', form=form)
+
+        existing_email = User.query.filter_by(email=form.email.data).first()
+        print(f"Checking email: {existing_email}")
+
+        if existing_email:
+            flash('Email is already registered.', 'danger')
+            print("Duplicate email found.")
+            return render_template('register.html', title='Register', form=form)
+
+        print("Hashing password.")
+        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        phone_number = form.phone.data.strip()
+        if not phone_number.startswith('+'):
+            phone_number = f"+{phone_number}"
+            print(f"Formatted phone number: {phone_number}")
+
+        # Save user to database
+        user = User(username=form.username.data, email=form.email.data, password=hashed_password)
+        try:
+            db.session.add(user)
+            db.session.commit()
+            print("User successfully added.")
+        except Exception as e:
+            print("Database error:", e)
+            flash('Database error. Please try again.', 'danger')
+            return render_template('register.html', title='Register', form=form)
+
+        # Send SMS verification
+        try:
+            print("Sending verification SMS.")
+            verification = client.verify \
                 .services(Config.VERIFY_SERVICE_ID) \
                 .verifications \
-                .create(to=form.phone.data, channel="sms")
+                .create(to=phone_number, channel="sms")
+            print("Verification status:", verification.status)
 
-
-        if verification.status == "queued":
-            flash('A verification code has been sent to your phone.', 'info')
-        else:
-            flash('Failed to send verification code.', 'error')
+            if verification.status == "queued":
+                flash('A verification code has been sent to your phone.', 'info')
+            else:
+                flash('Failed to send verification code.', 'danger')
+        except Exception as e:
+            print("Verification error:", e)
+            flash('Error sending verification code.', 'danger')
+            return render_template('register.html', title='Register', form=form)
 
         return redirect(url_for('main.login'))
 
+    print("Form errors: ", form.errors)
     return render_template('register.html', title='Register', form=form)
+
 
 @main.route("/login", methods=['GET', 'POST'])
 def login():
@@ -149,7 +185,7 @@ def verify_token():
 
     return render_template('verify_token.html', form=form)
 
-@main.route("/create-checkout-session/<int:car_id>", methods=['POST'])  
+@main.route("/create-checkout-session/<int:car_id>", methods=['POST'])
 @login_required
 def create_checkout_session(car_id):
     """

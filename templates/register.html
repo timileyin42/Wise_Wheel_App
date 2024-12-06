@@ -17,9 +17,24 @@
 
     <main>
         <h1>Register</h1>
+        
+        <!-- Flash Messages Section -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flashes">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">
+                            <p>{{ message }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Registration Form -->
         <form method="POST" action="{{ url_for('main.register') }}">
             {{ form.hidden_tag() }}
-            
+
             <div class="form-group">
                 {{ form.username.label(class="form-label") }}
                 {{ form.username(class="form-control") }}
@@ -27,7 +42,7 @@
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             </div>
-            
+
             <div class="form-group">
                 {{ form.email.label(class="form-label") }}
                 {{ form.email(class="form-control") }}
@@ -35,7 +50,7 @@
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             </div>
-            
+
             <div class="form-group">
                 {{ form.phone.label(class="form-label") }}
                 {{ form.phone(class="form-control") }}
@@ -58,7 +73,7 @@
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             </div>
-            
+
             <div class="form-group">
                 {{ form.confirm_password.label(class="form-label") }}
                 {{ form.confirm_password(class="form-control") }}
@@ -66,7 +81,7 @@
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             </div>
-            
+
             <div class="form-group">
                 {{ form.submit(class="btn btn-primary") }}
             </div>

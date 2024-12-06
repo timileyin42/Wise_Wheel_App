@@ -39,7 +39,7 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     image_file = db.Column(db.String(20), nullable=False, default='default.jpg')
     password = db.Column(db.String(60), nullable=False)
-    phone_number = db.Column(db.String(20)) 
+    phone_number = db.Column(db.String(20))
     rentals = db.relationship('Rental', backref='renter', lazy=True)
 
     def set_password(self, plain_text_password):
@@ -91,3 +91,4 @@ class Rental(db.Model):
     payment_status = db.Column(db.Boolean, default=False)
     car_id = db.Column(db.Integer, db.ForeignKey('car.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
