@@ -3,11 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Rental</title>
+    <title>WiseWheel Car Rental</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+    <style>
+        /* Inline styles for background image */
+        .home-background {
+            background-image: url("{{ url_for('static', filename='images/5.jpg') }}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            height: 100vh;
+            color: white;
+        }
+    </style>
 </head>
-<body>
+<body class="home-background">
     <header>
         <nav>
             <a href="{{ url_for('main.home') }}">Home</a>
@@ -24,7 +35,7 @@
     <main>
         <h1>Welcome to WiseWheel Car Rental</h1>
         <h2>Available Cars</h2>
-        
+
         <div class="search-container">
             <input type="text" id="carSearch" class="form-control" placeholder="Search for cars...">
         </div>
@@ -33,6 +44,8 @@
             {% for car in cars %}
                 <div class="car-item">
                     <h3 class="car-name">{{ car.maker }} {{ car.model }} ({{ car.year }})</h3>
+                    <!-- Display car image dynamically -->
+                    <img src="{{ url_for('static', filename='images/' ~ car.image) }}" alt="{{ car.maker }} {{ car.model }}" class="car-image">
                     <p>Price per day: ${{ car.price_per_day }}</p>
                     {% if car.availability %}
                         <p>Status: Available</p>
@@ -50,3 +63,4 @@
     </footer>
 </body>
 </html>
+

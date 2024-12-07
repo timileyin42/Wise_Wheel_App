@@ -3,7 +3,7 @@ import requests
 import paystack
 import json
 from authy.api import AuthyApiClient
-from flask import render_template, url_for, flash, redirect, request, jsonify, Blueprint
+from flask import render_template, url_for, flash, redirect, request, jsonify, send_from_directory, Blueprint
 from app import db, bcrypt
 from app.forms import RegistrationForm, LoginForm, RentalForm, VerifyTokenForm, PaymentForm
 from app.models import User, Car, Rental
@@ -25,7 +25,6 @@ main = Blueprint(
     static_url_path='/static'       # URL prefix for static files
 )
 print("Static folder (Blueprint):", os.path.abspath(os.path.join(__file__, '../static')))
-
 
 @main.route("/")
 @main.route("/home")
