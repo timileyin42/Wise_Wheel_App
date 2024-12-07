@@ -17,7 +17,15 @@ client = Client(account_sid, auth_token)
 
 paystack_secret_key = Config.PAYSTACK_SECRET_KEY
 paystack.secret_key = paystack_secret_key
-main = Blueprint('main', __name__, template_folder='../templates', static_folder='../static')
+main = Blueprint(
+    'main',
+    __name__,
+    template_folder='../templates',  # Path to templates folder
+    static_folder='../static',      # Path to static folder
+    static_url_path='/static'       # URL prefix for static files
+)
+print("Static folder (Blueprint):", os.path.abspath(os.path.join(__file__, '../static')))
+
 
 @main.route("/")
 @main.route("/home")
@@ -109,17 +117,27 @@ def login():
     """
 
     if current_user.is_authenticated:
-        return redirect(url_for('main.home'))
+        return redirect(url_for('main.profile'))
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         if user and bcrypt.check_password_hash(user.password, form.password.data):
             login_user(user, remember=form.remember.data)
             next_page = request.args.get('next')
-            return redirect(next_page) if next_page else redirect(url_for('main.home'))
+            return redirect(next_page) if next_page else redirect(url_for('main.profile'))
         else:
             flash('Login failed. Please check email and password', 'try again')
     return render_template('login.html', title='Login', form=form)
+
+@main.route("/profile")
+@login_required
+def profile():
+    """
+    Displays the user's profile.
+    """
+    user = current_user  # Gets the currently logged-in user
+    return render_template('profile.html', title='Profile', user=user)
+
 
 @main.route("/logout")
 def logout():
