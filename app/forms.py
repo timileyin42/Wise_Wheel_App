@@ -18,7 +18,7 @@ class RegistrationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
-    phone = StringField('Phone', validators=[
+    phone_number = StringField('Phone', validators=[
         DataRequired(),
         Length(min=10, max=15),
         Regexp(r'^\+?[1-9]\d{9,14}$', message="Invalid phone number format.")

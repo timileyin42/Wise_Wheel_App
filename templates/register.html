@@ -52,9 +52,9 @@
             </div>
 
             <div class="form-group">
-                {{ form.phone.label(class="form-label") }}
-                {{ form.phone(class="form-control") }}
-                {% for error in form.phone.errors %}
+                {{ form.phone_number.label(class="form-label") }}
+                {{ form.phone_number(class="form-control") }}
+                {% for error in form.phone_number.errors %}
                     <span class="error">{{ error }}</span>
                 {% endfor %}
             </div>

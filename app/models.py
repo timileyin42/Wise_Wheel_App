@@ -41,6 +41,7 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(60), nullable=False)
     phone_number = db.Column(db.String(20))
     rentals = db.relationship('Rental', backref='renter', lazy=True)
+    verified = db.Column(db.Boolean, default=False)
 
     def set_password(self, plain_text_password):
         """Hash a plain text password and store it in this user's record."""
