@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, DateField, IntegerField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, Regexp
 
+
 class RegistrationForm(FlaskForm):
     """
     Form for user registration.
@@ -41,6 +42,7 @@ class LoginForm(FlaskForm):
     remember = BooleanField('Remember Me')
     submit = SubmitField('Login')
 
+
 class RentalForm(FlaskForm):
     """
     Form for booking a car rental.
@@ -54,6 +56,7 @@ class RentalForm(FlaskForm):
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[DataRequired()])
     submit = SubmitField('Book Now')
 
+
 class VerifyTokenForm(FlaskForm):
     """
     Form for verifying a token.
@@ -64,6 +67,7 @@ class VerifyTokenForm(FlaskForm):
     """
     token = IntegerField('Token', validators=[DataRequired()])
     submit = SubmitField('Verify')
+
 
 class PaymentForm(FlaskForm):
     """
@@ -83,3 +87,14 @@ class PaymentForm(FlaskForm):
     card_holder_name = StringField('Card Holder Name', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     submit = SubmitField('Pay Now')
+
+
+class SendTokenForm(FlaskForm):
+    """
+    Form for sending OTP tokens.
+
+    Fields:
+    - submit: A submit button labeled "Send OTP".
+    """
+    submit = SubmitField('Send OTP')
+

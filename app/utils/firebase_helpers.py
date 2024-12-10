@@ -2,10 +2,10 @@ from firebase_admin import auth
 
 def send_firebase_otp(phone_number):
     """
-    Initiates the OTP sending process via Firebase.
+    Simulates the initiation of the OTP sending process via Firebase.
 
-    Firebase Admin SDK does not directly send OTPs, but you can use Firebase Authentication
-    to trigger an SMS-based verification process.
+    Firebase Admin SDK does not directly send OTPs. The client-side Firebase SDK handles
+    OTP sending and reCAPTCHA. This function ensures the user exists in Firebase.
 
     Args:
         phone_number (str): The phone number in E.164 format (e.g., "+1234567890").
@@ -14,44 +14,48 @@ def send_firebase_otp(phone_number):
         dict: Contains the result or error message.
     """
     try:
-        # Check if the user exists, if not create a placeholder for the phone number
+        # Check if the user exists; create if not
         try:
             user = auth.get_user_by_phone_number(phone_number)
-            message = "User already exists. OTP sent for verification."
+            message = "User already exists. OTP sending is handled client-side."
         except auth.UserNotFoundError:
             user = auth.create_user(phone_number=phone_number)
-            message = "New user created and OTP sent for verification."
+            message = "New user created. OTP sending is handled client-side."
 
-        # You may need to integrate client-side Firebase SDK to send OTP
-        # Firebase Admin alone doesn't handle OTP sending
+        # Note: OTP sending is handled by the Firebase client-side SDK
         return {"success": True, "message": message, "user_id": user.uid}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def verify_firebase_otp(verification_id, otp):
+def verify_firebase_token(id_token):
     """
-    Verifies the OTP entered by the user via Firebase Authentication.
+    Verifies the Firebase ID token received from the client after OTP verification.
 
-    Note: Firebase Admin SDK does not handle OTP verification directly.
-    OTP verification is done client-side and the result (ID token) is sent to the backend.
+    Firebase Admin SDK verifies the token to authenticate the user.
 
     Args:
-        verification_id (str): Firebase Verification ID (session).
-        otp (str): One-time password entered by the user.
+        id_token (str): The Firebase ID token received from the frontend.
 
     Returns:
         dict: Contains the verification result or error message.
     """
     try:
-        # Normally, you would use client-side Firebase SDK to verify the OTP
-        # This method assumes you receive a valid ID token after verification on the client-side
-        decoded_token = auth.verify_id_token(otp)
+        # Verify the ID token using Firebase Admin SDK
+        decoded_token = auth.verify_id_token(id_token)
         user_id = decoded_token.get("uid", None)
+
         if user_id:
-            return {"success": True, "message": "OTP verified successfully.", "user_id": user_id}
+            return {
+                "success": True,
+                "message": "Token verified successfully.",
+                "user_id": user_id,
+            }
         else:
-            return {"success": False, "error": "Invalid OTP or user ID not found."}
+            return {
+                "success": False,
+                "error": "Invalid token or user ID not found.",
+            }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"Token verification failed: {str(e)}"}
 

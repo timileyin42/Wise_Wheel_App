@@ -9,12 +9,11 @@ from firebase_admin import exceptions
 from firebase_admin.exceptions import FirebaseError
 from flask import render_template, url_for, flash, redirect, request, jsonify, send_from_directory, Blueprint
 from app import db, bcrypt
-from app.forms import RegistrationForm, LoginForm, RentalForm, PaymentForm, VerifyTokenForm
+from app.forms import RegistrationForm, LoginForm, RentalForm, PaymentForm, VerifyTokenForm, SendTokenForm
 from app.models import User, Car, Rental
 from flask_login import login_user, current_user, logout_user, login_required
 from config import Config
-from app.utils.firebase_helpers import send_firebase_otp, verify_firebase_otp
-
+from app.utils.firebase_helpers import send_firebase_otp
 
 
 paystack_secret_key = Config.PAYSTACK_SECRET_KEY
@@ -39,24 +38,25 @@ def home():
     cars = Car.query.all()
     return render_template('home.html', cars=cars)
 
-@main.route("/register", methods=['GET', 'POST'])
+@main.route("/register", methods=["GET", "POST"])
 def register():
+    """
+    Handles user registration.
+
+    After successful registration, the user is redirected to the send_token route to initiate phone number verification.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('main.home'))
 
     form = RegistrationForm()
 
     if form.validate_on_submit():
-        print("Form is valid.")
-
         # Check for duplicate username and email
-        existing_user = User.query.filter_by(username=form.username.data).first()
-        if existing_user:
+        if User.query.filter_by(username=form.username.data).first():
             flash('Username is already taken.', 'danger')
             return render_template('register.html', title='Register', form=form)
 
-        existing_email = User.query.filter_by(email=form.email.data).first()
-        if existing_email:
+        if User.query.filter_by(email=form.email.data).first():
             flash('Email is already registered.', 'danger')
             return render_template('register.html', title='Register', form=form)
 
@@ -78,10 +78,11 @@ def register():
             flash('Database error. Please try again.', 'danger')
             return render_template('register.html', title='Register', form=form)
 
-        # Redirect to phone verification
-        return redirect(url_for('main.verify_token'))
+        # Redirect to send_token route to initiate phone verification
+        return redirect(url_for('main.send_token'))
 
     return render_template('register.html', title='Register', form=form)
+
 
 @main.route("/login", methods=['GET', 'POST'])
 def login():
@@ -152,32 +153,36 @@ def payment(car_id):
     car_details = {'model': car.model, 'year': car.year, 'maker': car.maker, 'price_per_day': car.price_per_day}
     return render_template('payment.html', car=car, public_key=Config.PAYSTACK_PUBLIC_KEY)
 
-@main.route("/verify_token", methods=['GET', 'POST'])
+@main.route("/verify_token", methods=["GET", "POST"])
 @login_required
 def verify_token():
-    if request.method == 'GET':
-        # Render the token verification page
-        return render_template('verify_token.html', phone_number=current_user.phone_number)
+    """
+    Verifies the OTP token submitted by the user.
 
-    if request.method == 'POST':
-        data = request.get_json()
-        otp_token = data.get('token')
+    Uses VerifyTokenForm for user input and communicates with Firebase to verify the token.
+    """
+    form = VerifyTokenForm()
 
-        if not otp_token:
-            return jsonify({"error": "Token is required"}), 400
+    if form.validate_on_submit():
+        otp_token = form.token.data
 
         try:
-            # Verify the token using Firebase
+            # Verify the token using Firebase Admin SDK
             decoded_token = auth.verify_id_token(otp_token)
             if decoded_token:
+                # Mark the current user as verified
                 current_user.verified = True
                 db.session.commit()
+
                 flash('Phone number verified successfully!', 'success')
-                return jsonify({"success": "Verification complete"}), 200
+                return redirect(url_for('main.home'))  # Redirect to home after successful verification
             else:
-                return jsonify({"error": "Invalid or expired token"}), 400
+                flash('Invalid or expired token.', 'danger')
         except Exception as e:
-            return jsonify({"error": f"Verification failed: {str(e)}"}), 500
+            print(f"Verification error: {e}")
+            flash('Verification failed. Please try again later.', 'danger')
+
+    return render_template('verify_token.html', title="Verify OTP", form=form)
 
 
 @main.route("/create-checkout-session/<int:car_id>", methods=['POST'])
@@ -227,40 +232,49 @@ def cancel():
     flash('Payment canceled. Please try again.', 'try again')
     return redirect(url_for('main.home'))
 
-@main.route("/send_token", methods=['POST'])
+@main.route("/send_token", methods=["GET", "POST"])
 @login_required
 def send_token():
     """
     Initiates the OTP process for the user's phone number.
 
-    This route ensures that the user's phone number is registered in Firebase and prepares
-    the backend for OTP verification. The client-side will handle sending the OTP via Firebase SDK.
+    Uses the SendTokenForm for user interaction and communicates with Firebase for OTP registration.
     """
+    form = SendTokenForm()
+    phone_number = current_user.phone_number  # Assuming `phone` is a field in your User model
 
-    phone_number = current_user.phone  # Assuming `phone` is a field in your User model
+    if not phone_number:
+        flash('Phone number is missing. Please update your profile.', 'danger')
+        return redirect(url_for('main.profile'))  # Redirect to profile update page
 
-    try:
-        # Check if the user exists in Firebase by phone number
+    if form.validate_on_submit():
         try:
-            auth.get_user_by_phone_number(phone_number)
-            flash('Phone number already registered with Firebase.', 'info')
-        except auth.UserNotFoundError:
-            # Create a user in Firebase if not already present
-            auth.create_user(phone_number=phone_number)
-            flash('User created in Firebase. Proceed with OTP verification.', 'info')
+            # Check if the user exists in Firebase by phone number
+            try:
+                auth.get_user_by_phone_number(phone_number)
+                flash('Phone number is already registered with Firebase.', 'info')
+            except auth.UserNotFoundError:
+                # Create a user in Firebase if not already present
+                auth.create_user(phone_number=phone_number)
+                flash('User successfully created in Firebase. You can now proceed with OTP verification.', 'success')
 
-        # You can track this action or create a session if needed
-        # Optionally, store a verification status flag in the User model
-        current_user.verification_status = 'initiated'  # Add this in your User model if needed
-        db.session.commit()
+            # Optional: Update user verification status in your database
+            current_user.verification_status = 'initiated'  # Ensure this field exists in your User model
+            db.session.commit()
 
-        # Inform the frontend to trigger the OTP process
-        flash('Verification initiated. Follow the instructions sent to your phone.', 'info')
-    except FirebaseError as e:
-        print(f"Error initializing verification: {e}")
-        flash('Failed to initiate verification. Please try again.', 'danger')
+            # Notify frontend to trigger OTP process
+            flash('Verification initiated. Please follow the instructions sent to your phone.', 'info')
+        except FirebaseError as e:
+            print(f"Error initializing verification: {e}")
+            flash('Failed to initiate verification. Please try again later.', 'danger')
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            flash('An unexpected error occurred. Please try again later.', 'danger')
 
-    return redirect(url_for('main.verify_token'))
+        return redirect(url_for('main.verify_token'))  # Adjust redirect route as needed
+
+    return render_template('send_token.html', title="Send OTP", form=form)
+
 
 @main.route('/firebase-config', methods=['GET'])
 def firebase_config():
