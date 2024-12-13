@@ -158,7 +158,7 @@ def payment(car_id):
 def verify_token():
     """
     Verifies the OTP token submitted by the user.
-
+    
     Uses VerifyTokenForm for user input and communicates with Firebase to verify the token.
     """
     form = VerifyTokenForm()
@@ -175,15 +175,19 @@ def verify_token():
                 db.session.commit()
 
                 flash('Phone number verified successfully!', 'success')
-                return redirect(url_for('main.home'))  # Redirect to home after successful verification
+                return jsonify({"success": True, "message": "Phone number verified successfully!"})
             else:
-                flash('Invalid or expired token.', 'danger')
+                return jsonify({"success": False, "message": "Invalid or expired token."}), 400
+
+        except ValueError as ve:
+            print(f"Token verification failed: {ve}")
+            return jsonify({"success": False, "message": "Invalid token format."}), 400
+
         except Exception as e:
             print(f"Verification error: {e}")
-            flash('Verification failed. Please try again later.', 'danger')
+            return jsonify({"success": False, "message": "Verification failed. Please try again later."}), 500
 
     return render_template('verify_token.html', title="Verify OTP", form=form)
-
 
 @main.route("/create-checkout-session/<int:car_id>", methods=['POST'])
 @login_required
@@ -238,56 +242,51 @@ def send_token():
     """
     Initiates the OTP process for the user's phone number.
 
-    Uses the SendTokenForm for user interaction and communicates with Firebase for OTP registration.
+    Uses Firebase Authentication to handle OTP sending and user registration if needed.
     """
-    form = SendTokenForm()
-    phone_number = current_user.phone_number  # Assuming `phone` is a field in your User model
+    phone_number = current_user.phone_number  # Assuming `phone_number` exists in your User model
 
     if not phone_number:
         flash('Phone number is missing. Please update your profile.', 'danger')
-        return redirect(url_for('main.profile'))  # Redirect to profile update page
+        return redirect(url_for('main.profile'))
 
-    if form.validate_on_submit():
+    if request.method == "POST":
         try:
-            # Check if the user exists in Firebase by phone number
+            # Check or create Firebase user for the phone number
             try:
                 auth.get_user_by_phone_number(phone_number)
                 flash('Phone number is already registered with Firebase.', 'info')
             except auth.UserNotFoundError:
-                # Create a user in Firebase if not already present
                 auth.create_user(phone_number=phone_number)
-                flash('User successfully created in Firebase. You can now proceed with OTP verification.', 'success')
+                flash('User created successfully in Firebase.', 'success')
 
-            # Optional: Update user verification status in your database
-            current_user.verification_status = 'initiated'  # Ensure this field exists in your User model
-            db.session.commit()
-
-            # Notify frontend to trigger OTP process
-            flash('Verification initiated. Please follow the instructions sent to your phone.', 'info')
+            flash('Verification initiated. Follow the instructions sent to your phone.', 'info')
         except FirebaseError as e:
-            print(f"Error initializing verification: {e}")
+            print(f"Firebase error: {e}")
             flash('Failed to initiate verification. Please try again later.', 'danger')
         except Exception as e:
             print(f"Unexpected error: {e}")
             flash('An unexpected error occurred. Please try again later.', 'danger')
 
-        return redirect(url_for('main.verify_token'))  # Adjust redirect route as needed
+        return redirect(url_for('main.verify_token'))  # Adjust as needed for your flow
 
-    return render_template('send_token.html', title="Send OTP", form=form)
+    return render_template('send_token.html', title="Send OTP", phone_number=phone_number)
 
 
 @main.route('/firebase-config', methods=['GET'])
 def firebase_config():
+    """
+    Provides Firebase configuration to the frontend securely.
+    """
     firebase_config = {
         "apiKey": os.getenv("FIREBASE_API_KEY"),
         "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
         "projectId": os.getenv("FIREBASE_PROJECT_ID"),
         "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
         "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
-        "appId": os.getenv("FIREBASE_APP_ID")
+        "appId": os.getenv("FIREBASE_APP_ID"),
     }
 
-    # Check if any of the environment variables are missing
     missing_keys = [key for key, value in firebase_config.items() if not value]
     if missing_keys:
         return jsonify({"error": f"Missing environment variables: {', '.join(missing_keys)}"}), 500
