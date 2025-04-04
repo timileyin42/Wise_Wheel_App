@@ -1,52 +1,217 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Rental</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
-</head>
-<body>
-    <header>
-        <nav>
-            <a href="{{ url_for('main.home') }}">Home</a>
-            {% if current_user.is_authenticated %}
-                <a href="{{ url_for('main.profile') }}">Profile</a>
-                <a href="{{ url_for('main.logout') }}">Logout</a>
-            {% else %}
-                <a href="{{ url_for('main.login') }}">Login</a>
-                <a href="{{ url_for('main.register') }}">Register</a>
-            {% endif %}
-        </nav>
-    </header>
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Hero Section -->
+    <div class="hero-section bg-dark text-white py-5">
+        <div class="container py-5">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="display-4 fw-bold mb-4">Find Your Perfect Ride</h1>
+                    <p class="lead mb-4">Discover our wide selection of vehicles for every occasion at competitive prices.</p>
+                    {% if not current_user.is_authenticated %}
+                    <a href="{{ url_for('main.register') }}" class="btn btn-primary btn-lg me-2">Get Started</a>
+                    {% endif %}
+                    <a href="#available-cars" class="btn btn-outline-light btn-lg">Browse Cars</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <main>
-        <h1>Welcome to WiseWheel Car Rental</h1>
-        <h2>Available Cars</h2>
-        
-        <div class="search-container">
-            <input type="text" id="carSearch" class="form-control" placeholder="Search for cars...">
+    <!-- Available Cars Section -->
+    <div class="container py-5" id="available-cars">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">Available Vehicles</h2>
+            <div class="w-50">
+                <form class="d-flex" id="searchForm">
+                    <input type="text" id="carSearch" class="form-control form-control-lg" 
+                           placeholder="Search by make, model or year...">
+                    <button type="submit" class="btn btn-primary ms-2">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
         </div>
 
-        <div class="car-list">
+        <!-- Filter Options -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <select class="form-select" id="priceFilter">
+                    <option value="">All Prices</option>
+                    <option value="0-50">Under $50/day</option>
+                    <option value="50-100">$50 - $100/day</option>
+                    <option value="100-150">$100 - $150/day</option>
+                    <option value="150">Over $150/day</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="typeFilter">
+                    <option value="">All Types</option>
+                    <option value="sedan">Sedan</option>
+                    <option value="suv">SUV</option>
+                    <option value="truck">Truck</option>
+                    <option value="luxury">Luxury</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="yearFilter">
+                    <option value="">All Years</option>
+                    <option value="2020-2023">2020 - 2023</option>
+                    <option value="2015-2019">2015 - 2019</option>
+                    <option value="2010-2014">2010 - 2014</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100" id="resetFilters">
+                    <i class="fas fa-redo me-2"></i>Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Cars Grid -->
+        <div class="row g-4" id="carsContainer">
             {% for car in cars %}
-                <div class="car-item">
-                    <h3 class="car-name">{{ car.maker }} {{ car.model }} ({{ car.year }})</h3>
-                    <p>Price per day: ${{ car.price_per_day }}</p>
-                    {% if car.availability %}
-                        <p>Status: Available</p>
-                        <a href="{{ url_for('main.book_car', car_id=car.id) }}" class="btn">Book Now</a>
-                    {% else %}
-                        <p>Status: Not Available</p>
-                    {% endif %}
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="position-relative">
+                        <img src="{{ url_for('static', filename='images/cars/' + car.image_file) }}" 
+                             class="card-img-top" 
+                             alt="{{ car.maker }} {{ car.model }}"
+                             style="height: 200px; object-fit: cover;">
+                        <span class="position-absolute top-0 end-0 m-2 badge bg-{{ 'success' if car.availability else 'danger' }}">
+                            {{ 'Available' if car.availability else 'Booked' }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">{{ car.maker }} {{ car.model }}</h5>
+                            <h5 class="text-primary mb-0">${{ "%.2f"|format(car.price_per_day) }}</h5>
+                        </div>
+                        <p class="text-muted mb-2">{{ car.year }} • {{ car.type or 'Sedan' }} • {{ car.seats or '4' }} seats</p>
+                        {% if car.description %}
+                        <p class="card-text text-truncate">{{ car.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="d-grid gap-2">
+                            {% if car.availability %}
+                            <a href="{{ url_for('main.car', car_id=car.id) }}" 
+                               class="btn btn-primary">
+                               <i class="fas fa-calendar-check me-2"></i>Book Now
+                            </a>
+                            {% else %}
+                            <button class="btn btn-outline-secondary" disabled>
+                                Currently Unavailable
+                            </button>
+                            {% endif %}
+                            <a href="{{ url_for('main.car', car_id=car.id) }}" 
+                               class="btn btn-outline-primary">
+                               <i class="fas fa-info-circle me-2"></i>View Details
+                            </a>
+                        </div>
+                    </div>
                 </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <h4 class="alert-heading">No Vehicles Available</h4>
+                    <p>Please check back later for new arrivals.</p>
+                </div>
+            </div>
             {% endfor %}
         </div>
-    </main>
+    </div>
+</div>
+{% endblock %}
 
-    <footer>
-        <p>&copy; {{ current_year }} WiseWheel Car Rental. All rights reserved.</p>
-    </footer>
-</body>
-</html>
+{% block scripts %}
+<!-- Search and Filter Functionality -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const carsContainer = document.getElementById('carsContainer');
+    const carSearch = document.getElementById('carSearch');
+    const priceFilter = document.getElementById('priceFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    const yearFilter = document.getElementById('yearFilter');
+    const resetFilters = document.getElementById('resetFilters');
+    const searchForm = document.getElementById('searchForm');
+    
+    // Filter cars based on search and filters
+    function filterCars() {
+        const searchTerm = carSearch.value.toLowerCase();
+        const priceRange = priceFilter.value;
+        const typeValue = typeFilter.value.toLowerCase();
+        const yearRange = yearFilter.value;
+        
+        document.querySelectorAll('#carsContainer .col-lg-4').forEach(card => {
+            const title = card.querySelector('.card-title').textContent.toLowerCase();
+            const type = card.querySelector('.text-muted').textContent.toLowerCase();
+            const price = parseFloat(card.querySelector('.text-primary').textContent.replace('$', ''));
+            const year = parseInt(card.querySelector('.text-muted').textContent.split('•')[0].trim());
+            const description = card.querySelector('.card-text')?.textContent.toLowerCase() || '';
+            
+            // Check search term
+            const matchesSearch = title.includes(searchTerm) || 
+                                description.includes(searchTerm);
+            
+            // Check price filter
+            let matchesPrice = true;
+            if (priceRange) {
+                const [min, max] = priceRange.split('-').map(Number);
+                matchesPrice = max ? (price >= min && price <= max) : (price >= min);
+            }
+            
+            // Check type filter
+            const matchesType = typeValue ? type.includes(typeValue) : true;
+            
+            // Check year filter
+            let matchesYear = true;
+            if (yearRange) {
+                const [min, max] = yearRange.split('-').map(Number);
+                matchesYear = max ? (year >= min && year <= max) : (year >= min);
+            }
+            
+            // Show/hide card based on filters
+            if (matchesSearch && matchesPrice && matchesType && matchesYear) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    // Event listeners
+    carSearch.addEventListener('input', filterCars);
+    priceFilter.addEventListener('change', filterCars);
+    typeFilter.addEventListener('change', filterCars);
+    yearFilter.addEventListener('change', filterCars);
+    
+    resetFilters.addEventListener('click', function() {
+        carSearch.value = '';
+        priceFilter.value = '';
+        typeFilter.value = '';
+        yearFilter.value = '';
+        filterCars();
+    });
+    
+    searchForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        filterCars();
+    });
+});
+</script>
+
+<!-- Hero Section Animation -->
+<style>
+.hero-section {
+    background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+                url("{{ url_for('static', filename='images/hero-bg.jpg') }}");
+    background-size: cover;
+    background-position: center;
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    transition: all 0.5s ease;
+}
+</style>
+{% endblock %}
