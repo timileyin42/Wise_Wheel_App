@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send OTP | App Name</title>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js';
+        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const phoneNumberDisplay = document.getElementById('phone-number-display');
+            const sendOtpButton = document.getElementById('sendOtpBtn');
+            const recaptchaContainer = document.getElementById('recaptcha-container');
+
+            // Fetch Firebase configuration from the server
+            fetch('/firebase-config')
+                .then(response => response.json())
+                .then(firebaseConfig => {
+                    if (firebaseConfig.error) {
+                        alert(`Firebase configuration error: ${firebaseConfig.error}`);
+                        return;
+                    }
+
+                    // Initialize Firebase app
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+
+                    // Display the user's phone number
+                    phoneNumberDisplay.textContent = "{{ phone_number }}";
+
+                    // Initialize reCAPTCHA
+                    const recaptchaVerifier = new RecaptchaVerifier(recaptchaContainer, {
+                        size: 'invisible',
+                        callback: () => {
+                            console.log('reCAPTCHA solved!');
+                            sendOtpButton.disabled = false;
+                        },
+                        'expired-callback': () => {
+                            console.log('reCAPTCHA expired.');
+                            sendOtpButton.disabled = true;
+                        }
+                    }, auth);
+
+                    // Render reCAPTCHA
+                    recaptchaVerifier.render().then(widgetId => {
+                        console.log('reCAPTCHA rendered successfully.');
+                        sendOtpButton.disabled = false;
+                    }).catch(err => {
+                        console.error('Error rendering reCAPTCHA:', err);
+                        alert('Failed to initialize reCAPTCHA. Please try again.');
+                    });
+
+                    // Send OTP on button click
+                    sendOtpButton.addEventListener('click', () => {
+                        const phoneNumber = "{{ phone_number }}";
+                        console.log('Sending OTP to:', phoneNumber);
+
+                        signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier)
+                            .then(confirmationResult => {
+                                window.confirmationResult = confirmationResult; // Store confirmation result globally
+                                alert('OTP sent! Please check your phone.');
+                                window.location.href = '/verify_token'; // Redirect to verification page
+                            })
+                            .catch(err => {
+                                console.error('Error sending OTP:', err);
+                                alert('Failed to send OTP. Please try again.');
+                            });
+                    });
+                })
+                .catch(err => {
+                    console.error('Error fetching Firebase config:', err);
+                    alert('Failed to load Firebase configuration. Please try again later.');
+                });
+        });
+    </script>
+</head>
+<body>
+    <h1>Send OTP to Your Phone Number</h1>
+    <p>Your registered phone number: <strong id="phone-number-display"></strong></p>
+    <div id="recaptcha-container"></div>
+    <button id="sendOtpBtn" disabled>Send OTP</button>
+</body>
+</html>
+

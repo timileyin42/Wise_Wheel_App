@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .footer { margin-top: 20px; font-size: 0.9em; color: #7f8c8d; }
+        .button { 
+            display: inline-block; padding: 10px 20px; 
+            background: #3498db; color: white; text-decoration: none; 
+            border-radius: 4px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Booking Confirmed 🎉</h1>
+        </div>
+        
+        <p>Hello <strong>{{ user.username }}</strong>,</p>
+        
+        <p>Your booking for <strong>{{ car.maker }} {{ car.model }}</strong> has been successfully confirmed!</p>
+        
+        <h3>Booking Details:</h3>
+        <ul>
+            <li><strong>Dates:</strong> {{ rental.start_date.strftime('%b %d, %Y') }} to {{ rental.end_date.strftime('%b %d, %Y') }}</li>
+            <li><strong>Total Amount:</strong> ₦{{ "%.2f"|format(rental.total_amount) }}</li>
+            <li><strong>Booking Reference:</strong> #{{ rental.id }}</li>
+        </ul>
+        
+        <p>You can view your booking details at any time on your <a href="{{ url_for('main.my_bookings', _external=True) }}">bookings page</a>.</p>
+        
+        <div class="footer">
+            <p>Thank you for choosing Wise Wheel App!</p>
+            <p>Need help? <a href="mailto:support@yourdomain.com">Contact our support team</a></p>
+        </div>
+    </div>
+</body>
+</html>

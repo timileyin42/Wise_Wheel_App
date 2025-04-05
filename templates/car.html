@@ -1,64 +1,192 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ car.model }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
-</head>
-<body>
-    <header>
-        <nav>
-            <a href="{{ url_for('main.home') }}">Home</a>
-            {% if current_user.is_authenticated %}
-                <a href="{{ url_for('main.logout') }}">Logout</a>
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Car Image Column -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <img src="{{ url_for('static', filename='images/cars/' + car.image_file) }}" 
+                     class="card-img-top img-fluid" 
+                     alt="{{ car.maker }} {{ car.model }}"
+                     style="object-fit: cover; height: 400px;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="card-title">{{ car.maker }} {{ car.model }}</h2>
+                        <span class="badge bg-{{ 'success' if car.availability else 'danger' }}">
+                            {{ 'Available' if car.availability else 'Unavailable' }}
+                        </span>
+                    </div>
+                    <h4 class="text-primary mb-3">${{ "%.2f"|format(car.price_per_day) }} <small class="text-muted">/day</small></h4>
+                    
+                    <div class="car-details mb-4">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Year:</span>
+                                <strong>{{ car.year }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Type:</span>
+                                <strong>{{ car.type or 'Sedan' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Seats:</span>
+                                <strong>{{ car.seats or '4' }}</strong>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    {% if car.description %}
+                    <div class="card-text">
+                        <h5>Description</h5>
+                        <p>{{ car.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Booking Form Column -->
+        <div class="col-lg-6">
+            {% if car.availability %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Book This Car</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.car', car_id=car.id) }}">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row g-3">
+                            <!-- Start Date -->
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    {{ form.start_date(class="form-control", id="startDate") }}
+                                    {{ form.start_date.label(class="form-label") }}
+                                    {% if form.start_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.start_date.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- End Date -->
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    {{ form.end_date(class="form-control", id="endDate") }}
+                                    {{ form.end_date.label(class="form-label") }}
+                                    {% if form.end_date.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.end_date.errors %}
+                                        {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Price Calculation -->
+                            <div class="col-12">
+                                <div class="alert alert-info" id="priceCalculation">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Estimated Total:</span>
+                                        <strong id="totalPrice">$0.00</strong>
+                                    </div>
+                                    <small class="text-muted" id="rentalDays">0 days</small>
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <div class="col-12">
+                                <div class="d-grid">
+                                    {{ form.submit(class="btn btn-primary btn-lg") }}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
             {% else %}
-                <a href="{{ url_for('main.login') }}">Login</a>
-                <a href="{{ url_for('main.register') }}">Register</a>
+            <div class="alert alert-warning">
+                <h4 class="alert-heading">Currently Unavailable</h4>
+                <p>This vehicle is already booked for the selected dates. Please check back later or browse other available vehicles.</p>
+                <hr>
+                <a href="{{ url_for('main.home') }}" class="btn btn-outline-primary">
+                    View Available Cars
+                </a>
+            </div>
             {% endif %}
-        </nav>
-    </header>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-    <main>
-        <h1>{{ car.maker }} {{ car.model }} ({{ car.year }})</h1>
-        <img src="{{ url_for('static', filename='images/' + car.image_file) }}" alt="{{ car.model }}">
-        <p>Price per day: ${{ car.price_per_day }}</p>
-        <p>{{ car.description }}</p>
-
-        {% if car.availability %}
-            <h2>Book this Car</h2>
-            <form method="POST" action="{{ url_for('main.car', car_id=car.id) }}">
-                {{ form.hidden_tag() }}
-
-                <div class="form-group">
-                    {{ form.start_date.label(class="form-label") }}
-                    {{ form.start_date(class="form-control") }}
-                    {% for error in form.start_date.errors %}
-                        <span class="error">{{ error }}</span>
-                    {% endfor %}
-                </div>
-
-                <div class="form-group">
-                    {{ form.end_date.label(class="form-label") }}
-                    {{ form.end_date(class="form-control") }}
-                    {% for error in form.end_date.errors %}
-                        <span class="error">{{ error }}</span>
-                    {% endfor %}
-                </div>
-
-                <div class="form-group">
-                    {{ form.submit(class="btn btn-primary") }}
-                </div>
-            </form>
-        {% else %}
-            <p>This car is currently unavailable.</p>
-        {% endif %}
-    </main>
-
-    <footer>
-        <p>&copy; {{ current_year }} WiseWheel Car Rental. All rights reserved.</p>
-    </footer>
-</body>
-</html>
+{% block scripts %}
+<!-- Date Picker and Price Calculation Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pricePerDay = {{ car.price_per_day }};
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    const totalPriceElement = document.getElementById('totalPrice');
+    const rentalDaysElement = document.getElementById('rentalDays');
+    
+    // Initialize date pickers with min date as today
+    const today = new Date().toISOString().split('T')[0];
+    startDateInput.min = today;
+    endDateInput.min = today;
+    
+    // Update end date min when start date changes
+    startDateInput.addEventListener('change', function() {
+        endDateInput.min = this.value;
+        calculatePrice();
+    });
+    
+    endDateInput.addEventListener('change', calculatePrice);
+    
+    function calculatePrice() {
+        if (startDateInput.value && endDateInput.value) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+            
+            // Calculate difference in days
+            const timeDiff = endDate - startDate;
+            const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+            
+            if (daysDiff > 0) {
+                const totalPrice = daysDiff * pricePerDay;
+                totalPriceElement.textContent = '$' + totalPrice.toFixed(2);
+                rentalDaysElement.textContent = daysDiff + ' day' + (daysDiff !== 1 ? 's' : '');
+            } else {
+                totalPriceElement.textContent = '$0.00';
+                rentalDaysElement.textContent = 'Invalid date range';
+            }
+        }
+    }
+    
+    // Initialize flatpickr for better date selection
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr("#startDate", {
+            minDate: "today",
+            dateFormat: "Y-m-d",
+            onChange: function(selectedDates, dateStr) {
+                flatpickr("#endDate", {
+                    minDate: dateStr,
+                    dateFormat: "Y-m-d"
+                });
+                calculatePrice();
+            }
+        });
+        
+        flatpickr("#endDate", {
+            minDate: "today",
+            dateFormat: "Y-m-d",
+            onChange: calculatePrice
+        });
+    }
+});
+</script>
+{% endblock %}
 
