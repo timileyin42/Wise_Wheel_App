@@ -1,4 +1,5 @@
 import os
+basedir = os.path.abspath(os.path.dirname(__file__))
 from dotenv import load_dotenv
 
 # Load environment variables from a .env file
@@ -16,3 +17,10 @@ class Config:
     MAILJET_SENDER_EMAIL = 'no-reply@yourdomain.com'
     MAILJET_SENDER_NAME = 'Wise Wheel App'
     TEMPLATES_AUTO_RELOAD = True
+    UPLOAD_FOLDER = os.path.join(basedir, 'app/static/images/profile_pics')
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB limit
+    
+    # Ensure upload folder exists
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOED_FOLDER)

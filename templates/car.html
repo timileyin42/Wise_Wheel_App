@@ -5,11 +5,42 @@
         <!-- Car Image Column -->
         <div class="col-lg-6 mb-4">
             <div class="card shadow-sm h-100">
+                <!-- Admin Controls (Top Right) -->
+                {% if current_user.is_authenticated and current_user.is_admin %}
+                <div class="position-absolute top-0 end-0 m-2">
+                    <div class="btn-group">
+                        <a href="{{ url_for('main.admin_edit_car', car_id=car.id) if car else '#' }}" 
+                           class="btn btn-sm btn-warning">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('main.admin_delete_car', car_id=car.id) if car else '#' }}" 
+                              onsubmit="return confirm('Are you sure you want to delete this car?');">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        <button class="btn btn-sm btn-{{ 'success' if car and car.availability else 'secondary' }}"
+                                data-bs-toggle="modal" data-bs-target="#availabilityModal">
+                            <i class="fas fa-{{ 'check' if car and car.availability else 'times' }}"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if car and car.image_file %}
                 <img src="{{ url_for('static', filename='images/cars/' + car.image_file) }}" 
                      class="card-img-top img-fluid" 
                      alt="{{ car.maker }} {{ car.model }}"
                      style="object-fit: cover; height: 400px;">
+                {% else %}
+                <div class="card-img-top img-fluid bg-secondary d-flex align-items-center justify-content-center" 
+                     style="height: 400px;">
+                    <i class="fas fa-car fa-5x text-white"></i>
+                </div>
+                {% endif %}
+                
                 <div class="card-body">
+                    {% if car %}
                     <div class="d-flex justify-content-between align-items-center">
                         <h2 class="card-title">{{ car.maker }} {{ car.model }}</h2>
                         <span class="badge bg-{{ 'success' if car.availability else 'danger' }}">
@@ -32,6 +63,16 @@
                                 <span>Seats:</span>
                                 <strong>{{ car.seats or '4' }}</strong>
                             </li>
+                            {% if current_user.is_authenticated and current_user.is_admin %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Added On:</span>
+                                <strong>{{ car.date_added.strftime('%Y-%m-%d') if car.date_added else 'N/A' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Bookings:</span>
+                                <strong>{{ car.rentals|length if car.rentals else 0 }}</strong>
+                            </li>
+                            {% endif %}
                         </ul>
                     </div>
                     
@@ -41,25 +82,36 @@
                         <p>{{ car.description }}</p>
                     </div>
                     {% endif %}
+                    {% else %}
+                    <div class="alert alert-danger">
+                        Car information not available
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Booking Form Column -->
         <div class="col-lg-6">
-            {% if car.availability %}
+            {% if car and (car.availability or (current_user.is_authenticated and current_user.is_admin)) %}
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Book This Car</h4>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Book This Car</h4>
+                        {% if current_user.is_authenticated and current_user.is_admin and not car.availability %}
+                        <span class="badge bg-warning text-dark">Admin Override</span>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('main.car', car_id=car.id) }}">
-                        {{ form.hidden_tag() }}
+                    <form method="POST" action="{{ url_for('main.car', car_id=car.id) if car else '#' }}">
+                        {{ form.hidden_tag() if form }}
                         
                         <div class="row g-3">
                             <!-- Start Date -->
                             <div class="col-md-6">
                                 <div class="form-floating mb-3">
+                                    {% if form and form.start_date %}
                                     {{ form.start_date(class="form-control", id="startDate") }}
                                     {{ form.start_date.label(class="form-label") }}
                                     {% if form.start_date.errors %}
@@ -69,12 +121,17 @@
                                         {% endfor %}
                                     </div>
                                     {% endif %}
+                                    {% else %}
+                                    <input type="date" class="form-control" id="startDate" name="start_date">
+                                    <label for="startDate" class="form-label">Start Date</label>
+                                    {% endif %}
                                 </div>
                             </div>
                             
                             <!-- End Date -->
                             <div class="col-md-6">
                                 <div class="form-floating mb-3">
+                                    {% if form and form.end_date %}
                                     {{ form.end_date(class="form-control", id="endDate") }}
                                     {{ form.end_date.label(class="form-label") }}
                                     {% if form.end_date.errors %}
@@ -84,8 +141,38 @@
                                         {% endfor %}
                                     </div>
                                     {% endif %}
+                                    {% else %}
+                                    <input type="date" class="form-control" id="endDate" name="end_date">
+                                    <label for="endDate" class="form-label">End Date</label>
+                                    {% endif %}
                                 </div>
                             </div>
+                            
+                            <!-- Admin Special Fields -->
+                            {% if current_user.is_authenticated and current_user.is_admin %}
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="adminOverride" name="admin_override">
+                                        <label class="form-check-label" for="adminOverride">
+                                            Force booking (override availability)
+                                        </label>
+                                    </div>
+                                    {% if all_users %}
+                                    <div class="form-floating mb-3">
+                                        <select class="form-select" id="userSelect" name="user_id">
+                                            <option value="">Select User (optional)</option>
+                                            {% for user in all_users %}
+                                            <option value="{{ user.id }}">{{ user.username }} ({{ user.email }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        <label for="userSelect">Book For User</label>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
                             
                             <!-- Price Calculation -->
                             <div class="col-12">
@@ -101,12 +188,22 @@
                             <!-- Submit Button -->
                             <div class="col-12">
                                 <div class="d-grid">
-                                    {{ form.submit(class="btn btn-primary btn-lg") }}
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        {% if form and form.submit %}
+                                        {{ form.submit() }}
+                                        {% else %}
+                                        Book Now
+                                        {% endif %}
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </form>
                 </div>
+            </div>
+            {% elif not car %}
+            <div class="alert alert-danger">
+                Car information not available
             </div>
             {% else %}
             <div class="alert alert-warning">
@@ -121,33 +218,69 @@
         </div>
     </div>
 </div>
+
+<!-- Availability Modal (Admin Only) -->
+{% if current_user.is_authenticated and current_user.is_admin and car %}
+<div class="modal fade" id="availabilityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Availability</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.admin_toggle_availability', car_id=car.id) }}">
+                <div class="modal-body">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="availabilityToggle" 
+                               name="availability" {{ 'checked' if car.availability else '' }}>
+                        <label class="form-check-label" for="availabilityToggle">
+                            Make this car {{ 'unavailable' if car.availability else 'available' }}
+                        </label>
+                    </div>
+                    <div class="form-floating mt-3">
+                        <textarea class="form-control" placeholder="Reason (optional)" 
+                                  id="availabilityReason" name="reason" style="height: 100px"></textarea>
+                        <label for="availabilityReason">Reason (optional)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <!-- Date Picker and Price Calculation Script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const pricePerDay = {{ car.price_per_day }};
+    const pricePerDay = {{ car.price_per_day if car else 0 }};
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
     const totalPriceElement = document.getElementById('totalPrice');
     const rentalDaysElement = document.getElementById('rentalDays');
     
-    // Initialize date pickers with min date as today
-    const today = new Date().toISOString().split('T')[0];
-    startDateInput.min = today;
-    endDateInput.min = today;
-    
-    // Update end date min when start date changes
-    startDateInput.addEventListener('change', function() {
-        endDateInput.min = this.value;
-        calculatePrice();
-    });
-    
-    endDateInput.addEventListener('change', calculatePrice);
-    
+    if (startDateInput && endDateInput) {
+        // Initialize date pickers with min date as today
+        const today = new Date().toISOString().split('T')[0];
+        startDateInput.min = today;
+        endDateInput.min = today;
+        
+        // Update end date min when start date changes
+        startDateInput.addEventListener('change', function() {
+            endDateInput.min = this.value;
+            calculatePrice();
+        });
+        
+        endDateInput.addEventListener('change', calculatePrice);
+    }
+
     function calculatePrice() {
-        if (startDateInput.value && endDateInput.value) {
+        if (startDateInput && endDateInput && startDateInput.value && endDateInput.value) {
             const startDate = new Date(startDateInput.value);
             const endDate = new Date(endDateInput.value);
             
@@ -157,17 +290,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (daysDiff > 0) {
                 const totalPrice = daysDiff * pricePerDay;
-                totalPriceElement.textContent = '$' + totalPrice.toFixed(2);
-                rentalDaysElement.textContent = daysDiff + ' day' + (daysDiff !== 1 ? 's' : '');
+                if (totalPriceElement) totalPriceElement.textContent = '$' + totalPrice.toFixed(2);
+                if (rentalDaysElement) rentalDaysElement.textContent = daysDiff + ' day' + (daysDiff !== 1 ? 's' : '');
             } else {
-                totalPriceElement.textContent = '$0.00';
-                rentalDaysElement.textContent = 'Invalid date range';
+                if (totalPriceElement) totalPriceElement.textContent = '$0.00';
+                if (rentalDaysElement) rentalDaysElement.textContent = 'Invalid date range';
             }
         }
     }
     
-    // Initialize flatpickr for better date selection
-    if (typeof flatpickr !== 'undefined') {
+    // Initialize flatpickr if available
+    if (typeof flatpickr !== 'undefined' && startDateInput && endDateInput) {
         flatpickr("#startDate", {
             minDate: "today",
             dateFormat: "Y-m-d",
@@ -186,7 +319,18 @@ document.addEventListener('DOMContentLoaded', function() {
             onChange: calculatePrice
         });
     }
+
+    // Admin-specific scripts
+    {% if current_user.is_authenticated and current_user.is_admin %}
+    const toggle = document.getElementById('availabilityToggle');
+    if (toggle) {
+        toggle.addEventListener('change', function() {
+            const newState = this.checked ? 'available' : 'unavailable';
+            const label = document.querySelector('label[for="availabilityToggle"]');
+            if (label) label.textContent = `Make this car ${newState}`;
+        });
+    }
+    {% endif %}
 });
 </script>
 {% endblock %}
-

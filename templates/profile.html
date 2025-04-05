@@ -1,36 +1,252 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
+<div class="container py-4">
+    <div class="row">
+        <!-- Profile Sidebar -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <!-- Profile Picture -->
+                    <div class="position-relative mx-auto" style="width: 150px; height: 150px;">
+                        <img src="{{ user.profile_pic or url_for('static', filename='images/default-profile.png') }}" 
+                             class="rounded-circle img-thumbnail w-100 h-100 object-fit-cover"
+                             alt="Profile Picture">
+                        <button class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle"
+                                data-bs-toggle="modal" data-bs-target="#profilePicModal">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                    
+                    <h4 class="my-3">{{ user.name }}</h4>
+                    <p class="text-muted mb-1">{{ user.email }}</p>
+                    <p class="text-muted">{{ user.phone }}</p>
+                    
+                    <div class="d-grid gap-2 mt-3">
+                        <a href="{{ url_for('main.edit_profile') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-edit me-2"></i>Edit Profile
+                        </a>
+                        <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-lock me-2"></i>Change Password
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    <div class="text-start">
+                        <p><i class="fas fa-calendar-alt me-2 text-primary"></i> Member since: {{ user.date_created.strftime('%B %Y') }}</p>
+                        <p><i class="fas fa-shield-alt me-2 text-success"></i> {{ 'Verified' if user.verified else 'Not Verified' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
         <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">Your Profile</h3>
+            <!-- User Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Total Bookings</h5>
+                            <h2 class="mb-0">{{ bookings|length }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Active Bookings</h5>
+                            <h2 class="mb-0">{{ active_bookings }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Loyalty Points</h5>
+                            <h2 class="mb-0">{{ user.loyalty_points or 0 }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Bookings -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Bookings</h5>
+                        <a href="{{ url_for('main.booking_history') }}" class="btn btn-sm btn-outline-primary">
+                            View All
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if bookings %}
+                    <div class="list-group list-group-flush">
+                        {% for booking in bookings[:3] %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="mb-1">{{ booking.car.maker }} {{ booking.car.model }}</h6>
+                                    <small class="text-muted">
+                                        {{ booking.pickup_date.strftime('%b %d, %Y') }} - 
+                                        {{ booking.return_date.strftime('%b %d, %Y') }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{{ 'success' if booking.status == 'confirmed' else 
+                                                         'warning' if booking.status == 'pending' else 
+                                                         'danger' }}">
+                                        {{ booking.status|title }}
+                                    </span>
+                                    <p class="mb-0 fw-bold">${{ "%.2f"|format(booking.total_amount) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="mb-0">No bookings yet</p>
+                        <a href="{{ url_for('main.home') }}" class="btn btn-primary mt-2">Book a Car</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Saved Payment Methods -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Payment Methods</h5>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                            <i class="fas fa-plus me-1"></i> Add New
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <strong>Name:</strong>
-                        <span>{{ user.name }}</span>
+                    {% if payment_methods %}
+                    <div class="row">
+                        {% for method in payment_methods %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <i class="fab fa-cc-{{ method.card_type.lower() }} me-2"></i>
+                                                **** **** **** {{ method.last4 }}
+                                            </h6>
+                                            <small class="text-muted">Expires {{ method.exp_month }}/{{ method.exp_year }}</small>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   id="defaultMethod{{ loop.index }}" 
+                                                   {{ 'checked' if method.is_default else '' }}>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <button class="btn btn-sm btn-outline-danger">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
-                    <div class="mb-3">
-                        <strong>Email:</strong>
-                        <span>{{ user.email }}</span>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-credit-card fa-3x text-muted mb-3"></i>
+                        <p class="mb-0">No saved payment methods</p>
                     </div>
-                    <div class="mb-3">
-                        <strong>Phone:</strong>
-                        <span>{{ user.phone }}</span>
-                    </div>
-                    <div class="mb-3">
-                        <strong>Account Created On:</strong>
-                        <span>{{ user.date_created.strftime('%B %d, %Y') }}</span>
-                    </div>
-                    <a href="{{ url_for('main.home') }}" class="btn btn-secondary">Back to Home</a>
-                    <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Log Out</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Profile Picture Modal -->
+<div class="modal fade" id="profilePicModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Profile Picture</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.upload_profile_pic') }}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <input type="file" class="form-control" name="profile_pic" accept="image/*">
+                        <div class="form-text">Max size 2MB (JPG, PNG)</div>
+                    </div>
+                    <div class="text-center">
+                        <img id="imagePreview" src="#" alt="Preview" class="img-thumbnail d-none" style="max-height: 200px;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Payment Method Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Payment Method</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.add_payment_method') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Card Number</label>
+                        <input type="text" class="form-control" placeholder="4242 4242 4242 4242" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Expiration Date</label>
+                            <input type="text" class="form-control" placeholder="MM/YY" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">CVV</label>
+                            <input type="text" class="form-control" placeholder="123" required>
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="makeDefault">
+                        <label class="form-check-label" for="makeDefault">Set as default payment method</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Card</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
+{% block scripts %}
+<script>
+// Image preview for profile picture upload
+document.querySelector('input[name="profile_pic"]').addEventListener('change', function(e) {
+    const preview = document.getElementById('imagePreview');
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.classList.remove('d-none');
+        }
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+{% endblock %}

@@ -7,7 +7,7 @@ from app.forms import RegistrationForm, LoginForm, RentalForm, PaymentForm
 from app.models import User, Car, Rental
 from flask_login import login_user, current_user, logout_user, login_required
 from flask_mail import Message
-from config import Config
+from config import Config, UPLOAD_FOLDER
 from app.utils import send_email
 
 
@@ -52,6 +52,8 @@ def register():
             flash('Email already registered', 'error')
             return redirect(url_for('main.register'))
         
+        is_admin = User.query.count() == 0
+        
         # Create user
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         user = User(
@@ -60,6 +62,7 @@ def register():
             password=hashed_password,
             phone_number=form.phone.data,
             is_verified=False
+            is_admin=is_admin
         )
         
         # Generate verification token
@@ -169,6 +172,9 @@ def logout():
 def car(car_id):
     """Show car details and handle rental booking"""
     car = Car.query.get_or_404(car_id)
+
+    is_admin = current_user.is_admin if current_user.is_authenticated else False
+    all_users = User.query.all() if current_user.is_admin else None
     
     # Ensure car is available
     if not car.availability:
@@ -200,7 +206,7 @@ def car(car_id):
         
         return redirect(url_for('main.payment', rental_id=rental.id))
     
-    return render_template('car.html', car=car, form=form)
+    return render_template('car.html', car=car, form=form, is_admin=is_admin)
 
 @main.route("/payment/<int:rental_id>", methods=['GET'])
 @login_required
@@ -257,7 +263,7 @@ def payment_success(rental_id):
     """Handle successful payment callback"""
     rental = Rental.query.get_or_404(rental_id)
     
-    if rental.user_id != current_user.id:
+    if rental.user_id != current_user.id and not current_user.is_admin:
         flash('Unauthorized access', 'danger')
         return redirect(url_for('main.home'))
     
@@ -281,14 +287,42 @@ def payment_success(rental_id):
 @main.route("/booking-confirmation/<int:rental_id>")
 @login_required
 def booking_confirmation(rental_id):
-    """Show booking confirmation details"""
-    rental = Rental.query.get_or_404(rental_id)
+    """
+    Show booking confirmation details with admin capabilities
     
-    if rental.user_id != current_user.id:
+    Args:
+        rental_id (int): The ID of the rental to display
+    
+    Returns:
+        Rendered template with rental details
+    """
+    rental = Rental.query.get_or_404(rental_id)
+    car = Car.query.get_or_404(rental.car_id)
+    
+    # Allow admin or the booking owner
+    if rental.user_id != current_user.id and not current_user.is_admin:
         flash('Unauthorized access', 'danger')
         return redirect(url_for('main.home'))
     
-    return render_template('booking_confirmation.html', rental=rental)
+    # Calculate remaining time until pickup
+    now = datetime.utcnow()
+    time_until_pickup = rental.start_date - now if rental.start_date > now else None
+    
+    # Get similar cars for recommendations
+    similar_cars = Car.query.filter(
+        Car.type == car.type,
+        Car.id != car.id,
+        Car.availability == True
+    ).limit(3).all()
+    
+    return render_template(
+        'booking_confirmation.html',
+        rental=rental,
+        car=car,
+        time_until_pickup=time_until_pickup,
+        similar_cars=similar_cars,
+        is_admin=current_user.is_admin
+    )
 
 @main.route("/payment-cancel/<int:rental_id>")
 @login_required
@@ -311,7 +345,14 @@ def payment_cancel(rental_id):
 @main.route("/my-bookings")
 @login_required
 def my_bookings():
-    """Show current user's booking history"""
+    """Show current user's booking history or all bookings for admin"""
+    if current_user.is_admin:
+        rentals = Rental.query.order_by(Rental.start_date.desc()).all()
+    else:
+        rentals = Rental.query.filter_by(user_id=current_user.id)\
+                             .order_by(Rental.start_date.desc())\
+                             .all()
+
     # Get all rentals for current user, ordered by most recent
     rentals = Rental.query.filter_by(user_id=current_user.id)\
                          .order_by(Rental.start_date.desc())\
@@ -428,3 +469,206 @@ def template_test():
         return render_template('home.html', cars=[])
     except Exception as e:
         return f"Template error: {str(e)}"
+
+@main.route('/profile')
+@login_required
+def profile():
+    # Get user's bookings (most recent first)
+    bookings = Booking.query.filter_by(user_id=current_user.id)\
+                           .order_by(Booking.created_at.desc()).all()
+    
+    # Count active bookings (status = 'confirmed' and not yet returned)
+    active_bookings = sum(1 for b in bookings if b.status == 'confirmed' and not b.is_returned)
+    
+    # Get saved payment methods
+    payment_methods = PaymentMethod.query.filter_by(user_id=current_user.id).all()
+    
+    return render_template('profile.html', 
+                         user=current_user,
+                         bookings=bookings,
+                         active_bookings=active_bookings,
+                         payment_methods=payment_methods)
+
+@main.route('/upload_profile_pic', methods=['POST'])
+@login_required
+def upload_profile_pic():
+    if 'profile_pic' not in request.files:
+        flash('No file selected', 'danger')
+        return redirect(url_for('main.profile'))
+    
+    file = request.files['profile_pic']
+    if file.filename == '':
+        flash('No file selected', 'danger')
+        return redirect(url_for('main.profile'))
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"user_{current_user.id}_{file.filename}")
+        filepath = os.path.join(UPLOAD_FOLDER, 'profile_pics', filename)
+        file.save(filepath)
+        
+        # Update user's profile picture path
+        current_user.profile_pic = f"images/profile_pics/{filename}"
+        db.session.commit()
+        
+        flash('Profile picture updated successfully', 'success')
+    else:
+        flash('Invalid file type. Allowed: JPG, PNG', 'danger')
+    
+    return redirect(url_for('main.profile'))
+
+@main.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        current_user.name = request.form.get('name')
+        current_user.phone = request.form.get('phone')
+        db.session.commit()
+        flash('Profile updated successfully', 'success')
+        return redirect(url_for('main.profile'))
+    
+    return render_template('edit_profile.html', user=current_user)
+
+# ADMIN ROUTES
+@main.route('/admin/dashboard')
+@login_required
+@admin_required
+def admin_dashboard():
+    """Admin dashboard with system overview"""
+    stats = {
+        'total_users': User.query.count(),
+        'total_cars': Car.query.count(),
+        'active_bookings': Rental.query.filter(Rental.end_date >= datetime.utcnow()).count(),
+        'revenue': db.session.query(db.func.sum(Rental.total_amount)).scalar() or 0
+    }
+    return render_template('admin/dashboard.html', stats=stats)
+
+@main.route('/admin/users')
+@login_required
+@admin_required
+def admin_users():
+    """User management interface"""
+    users = User.query.order_by(User.date_created.desc()).all()
+    return render_template('admin/users.html', users=users)
+
+@main.route('/admin/cars')
+@login_required
+@admin_required
+def admin_cars():
+    """Car inventory management"""
+    cars = Car.query.order_by(Car.date_added.desc()).all()
+    return render_template('admin/cars.html', cars=cars)
+
+@main.route('/admin/bookings')
+@login_required
+@admin_required
+def admin_bookings():
+    """Booking management interface"""
+    bookings = Rental.query.order_by(Rental.start_date.desc()).all()
+    return render_template('admin/bookings.html', bookings=bookings)
+
+@main.route('/admin/add-car', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_add_car():
+    """Add new car to inventory"""
+    form = CarForm()
+    if form.validate_on_submit():
+        car = Car(
+            maker=form.maker.data,
+            model=form.model.data,
+            year=form.year.data,
+            price_per_day=form.price.data,
+            description=form.description.data,
+            seats=form.seats.data,
+            transmission=form.transmission.data,
+            fuel_type=form.fuel_type.data
+        )
+        db.session.add(car)
+        db.session.commit()
+        flash('Car added successfully!', 'success')
+        return redirect(url_for('main.admin_cars'))
+    return render_template('admin/add_car.html', form=form)
+
+@main.route('/admin/edit-car/<int:car_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_edit_car(car_id):
+    """Edit existing car details"""
+    car = Car.query.get_or_404(car_id)
+    form = CarForm(obj=car)
+    if form.validate_on_submit():
+        form.populate_obj(car)
+        db.session.commit()
+        flash('Car details updated!', 'success')
+        return redirect(url_for('main.admin_cars'))
+    return render_template('admin/edit_car.html', form=form, car=car)
+
+@main.route('/admin/delete-car/<int:car_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_car(car_id):
+    """Delete a car from inventory"""
+    car = Car.query.get_or_404(car_id)
+    db.session.delete(car)
+    db.session.commit()
+    flash('Car deleted successfully', 'success')
+    return redirect(url_for('main.admin_cars'))
+
+@main.route('/admin/toggle-availability/<int:car_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_availability(car_id):
+    car = Car.query.get_or_404(car_id)
+    car.availability = not car.availability
+    db.session.commit()
+    flash(f'Car marked as {"available" if car.availability else "unavailable"}', 'success')
+    return redirect(url_for('main.car', car_id=car.id))
+
+@main.route('/admin/edit-booking/<int:booking_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_edit_booking(booking_id):
+    """Admin interface to edit booking details"""
+    booking = Rental.query.get_or_404(booking_id)
+    form = AdminBookingForm(obj=booking)
+    
+    if form.validate_on_submit():
+        form.populate_obj(booking)
+        db.session.commit()
+        flash('Booking updated successfully', 'success')
+        return redirect(url_for('main.booking_confirmation', rental_id=booking.id))
+    
+    return render_template('admin/edit_booking.html', form=form, booking=booking)
+
+@main.route('/admin/cancel-booking/<int:booking_id>', methods=['POST'])
+@login_required
+@admin_required
+def admin_cancel_booking(booking_id):
+    """Admin interface to cancel bookings"""
+    booking = Rental.query.get_or_404(booking_id)
+    reason = request.form.get('reason', 'No reason provided')
+    
+    # Process refund if selected
+    if request.form.get('issue_refund'):
+        # Implement refund logic here
+        pass
+    
+    # Send cancellation email
+    send_booking_email(
+        user=booking.user,
+        subject="Booking Cancelled by Admin",
+        template='email/admin_cancellation.html',
+        booking=booking,
+        reason=reason
+    )
+    
+    # Mark car as available
+    car = booking.car
+    car.availability = True
+    
+    # Delete booking
+    db.session.delete(booking)
+    db.session.commit()
+    
+    flash('Booking cancelled successfully', 'success')
+    return redirect(url_for('main.admin_bookings'))

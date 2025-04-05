@@ -40,6 +40,9 @@ class User(db.Model, UserMixin):
     verification_token = db.Column(db.String(120), unique=True)
     token_expiration = db.Column(db.DateTime)
     rentals = db.relationship('Rental', backref='renter', lazy=True)
+    is_admin = db.Column(db.Boolean, default=False)
+    verified = db.Column(db.Boolean, default=False)
+    role = db.Column(db.String(20), default='user') 
 
     def generate_verification_token(self, expires_in=3600):
         """Generate email verification token"""
@@ -65,6 +68,9 @@ class User(db.Model, UserMixin):
     def check_password(self, plain_text_password):
         """Check password against hash"""
         return bcrypt.check_password_hash(self.password, plain_text_password)
+    @property
+    def is_verified(self):
+        return self.verified
 
 class Car(db.Model):
     """
@@ -84,6 +90,7 @@ class Car(db.Model):
     price_per_day = db.Column(db.Float, nullable=False)
     availability = db.Column(db.Boolean, default=True)
     image_file = db.Column(db.String(20), nullable=False, default='car_default.jpg')
+    date_added = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Rental(db.Model):
     """
