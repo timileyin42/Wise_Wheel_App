@@ -1,31 +1,22 @@
 import os
 import requests
-import paystack
 import json
-import firebase_admin
-
-from firebase_admin import auth
-from firebase_admin import exceptions
-from firebase_admin.exceptions import FirebaseError
-from flask import render_template, url_for, flash, redirect, request, jsonify, send_from_directory, Blueprint
+from flask import render_template, url_for, flash, redirect, request, jsonify, Blueprint
 from app import db, bcrypt
-from app.forms import RegistrationForm, LoginForm, RentalForm, PaymentForm, VerifyTokenForm, SendTokenForm
+from app.forms import RegistrationForm, LoginForm, RentalForm, PaymentForm
 from app.models import User, Car, Rental
 from flask_login import login_user, current_user, logout_user, login_required
+from flask_mail import Message
 from config import Config
-from app.utils.firebase_helpers import send_firebase_otp
+from app.utils import send_email
 
 
 paystack_secret_key = Config.PAYSTACK_SECRET_KEY
-paystack.secret_key = paystack_secret_key
-main = Blueprint(
-    'main',
-    __name__,
-    template_folder='../templates',  # Path to templates folder
-    static_folder='../static',      # Path to static folder
-    static_url_path='/static'       # URL prefix for static files
-)
-print("Static folder (Blueprint):", os.path.abspath(os.path.join(__file__, '../static')))
+paystack_public_key = Config.PAYSTACK_PUBLIC_KEY
+
+main = Blueprint('main', __name__)
+main = Blueprint('main', __name__, template_folder='../templates')
+
 
 @main.route("/")
 @main.route("/home")
@@ -38,82 +29,131 @@ def home():
     cars = Car.query.all()
     return render_template('home.html', cars=cars)
 
-@main.route("/register", methods=["GET", "POST"])
-def register():
-    """
-    Handles user registration.
+@main.route('/debug-templates')
+def debug_templates():
+    with app.app_context():
+        from flask import render_template
+        try:
+            # Test rendering
+            test_render = render_template('home.html', cars=[])
+            return "Template found and rendered successfully!"
+        except Exception as e:
+            return f"Template error: {str(e)}"
 
-    After successful registration, the user is redirected to the send_token route to initiate phone number verification.
-    """
+@main.route("/register", methods=['GET', 'POST'])
+def register():
     if current_user.is_authenticated:
         return redirect(url_for('main.home'))
-
+    
     form = RegistrationForm()
-
     if form.validate_on_submit():
-        # Check for duplicate username and email
-        if User.query.filter_by(username=form.username.data).first():
-            flash('Username is already taken.', 'danger')
-            return render_template('register.html', title='Register', form=form)
-
+        # Check if user exists
         if User.query.filter_by(email=form.email.data).first():
-            flash('Email is already registered.', 'danger')
-            return render_template('register.html', title='Register', form=form)
-
-        # Hash password and format phone number
+            flash('Email already registered', 'error')
+            return redirect(url_for('main.register'))
+        
+        # Create user
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-        phone_number = form.phone_number.data.strip()
-        if not phone_number.startswith('+'):
-            phone_number = f"+{phone_number}"
+        user = User(
+            username=form.username.data,
+            email=form.email.data,
+            password=hashed_password,
+            phone_number=form.phone.data,
+            is_verified=False
+        )
+        
+        # Generate verification token
+        token = user.generate_verification_token()
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        # Send verification email
+        verification_url = url_for(
+            'main.verify_email',
+            token=token,
+            _external=True
+        )
+        
+        send_email(
+            to_email=user.email,
+            subject="Verify Your Email - WiseWheel",
+            html_content=render_template(
+                'email/verify_email.html',
+                user=user,
+                verification_url=verification_url
+            )
+        )
+        
+        flash('A verification email has been sent. Please check your inbox.', 'info')
+        return redirect(url_for('main.login'))
+    
+    return render_template('register.html', form=form)
 
-        # Save user to the database
-        user = User(username=form.username.data, email=form.email.data, password=hashed_password, phone_number=phone_number)
-        try:
-            db.session.add(user)
-            db.session.commit()
-            login_user(user)  # Log in the user
-            flash('Registration successful. Please verify your phone number.', 'info')
-        except Exception as e:
-            db.session.rollback()
-            flash('Database error. Please try again.', 'danger')
-            return render_template('register.html', title='Register', form=form)
-
-        # Redirect to send_token route to initiate phone verification
-        return redirect(url_for('main.send_token'))
-
-    return render_template('register.html', title='Register', form=form)
-
+@main.route('/verify-email/<token>')
+def verify_email(token):
+    user = User.query.filter_by(verification_token=token).first()
+    
+    if not user or datetime.utcnow() > user.token_expiration:
+        flash('The verification link is invalid or has expired.', 'danger')
+        return redirect(url_for('main.register'))
+    
+    if user.verify_token(token):
+        flash('Your email has been verified! You can now log in.', 'success')
+    else:
+        flash('Verification failed.', 'danger')
+    
+    return redirect(url_for('main.login'))
 
 @main.route("/login", methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('main.profile'))
-
+        return redirect(url_for('main.home'))
+    
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
+        
         if user and bcrypt.check_password_hash(user.password, form.password.data):
-            if user.verified:
-                login_user(user, remember=form.remember.data)
-                next_page = request.args.get('next')
-                return redirect(next_page) if next_page else redirect(url_for('main.profile'))
-            else:
-                flash('Please verify your phone number first.', 'warning')
+            if not user.is_verified:
+                flash('Please verify your email before logging in.', 'warning')
+                return redirect(url_for('main.login'))
+            
+            login_user(user, remember=form.remember.data)
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('main.home'))
         else:
-            flash('Login failed. Please check email and password.', 'danger')
+            flash('Login failed. Please check email and password', 'danger')
+    
+    return render_template('login.html', form=form)
 
-    return render_template('login.html', title='Login', form=form)
-
-
-@main.route("/profile")
+@main.route('/resend-verification', methods=['POST'])
 @login_required
-def profile():
-    """
-    Displays the user's profile.
-    """
-    user = current_user  # Gets the currently logged-in user
-    return render_template('profile.html', title='Profile', user=user)
-
+def resend_verification():
+    if current_user.is_verified:
+        return redirect(url_for('main.home'))
+    
+    token = current_user.generate_verification_token()
+    db.session.commit()
+    
+    verification_url = url_for(
+        'main.verify_email',
+        token=token,
+        _external=True
+    )
+    
+    send_email(
+        to_email=current_user.email,
+        subject="Verify Your Email - WiseWheel",
+        html_content=render_template(
+            'email/verify_email.html',
+            user=current_user,
+            verification_url=verification_url
+        )
+    )
+    
+    flash('A new verification email has been sent.', 'info')
+    return redirect(url_for('main.login'))
 
 @main.route("/logout")
 def logout():
@@ -127,168 +167,264 @@ def logout():
 @main.route("/car/<int:car_id>", methods=['GET', 'POST'])
 @login_required
 def car(car_id):
-    """
-    Shows details of a specific car and allows users to book it.
-
-    On GET, displays the car details. On POST, validates the booking form data and redirects to the payment page.
-    Requires the user to be logged in.
-    """
+    """Show car details and handle rental booking"""
     car = Car.query.get_or_404(car_id)
-    form = RentalForm()
-    if form.validate_on_submit():
-        return redirect(url_for('main.payment', car_id=car.id))
-    return render_template('car.html', title=car.model, car=car, form=form)
-
-@main.route("/payment/<int:car_id>", methods=['GET', 'POST'])
-@login_required
-def payment(car_id):
-    """
-    Displays the payment page for a selected car.
-
-    Fetches the car details and passes them along with the PayStack public key to the 'payment.html' template.
-    Requires the user to be logged in.
-    """
-
-    car = Car.query.get_or_404(car_id)
-    car_details = {'model': car.model, 'year': car.year, 'maker': car.maker, 'price_per_day': car.price_per_day}
-    return render_template('payment.html', car=car, public_key=Config.PAYSTACK_PUBLIC_KEY)
-
-@main.route("/verify_token", methods=["GET", "POST"])
-@login_required
-def verify_token():
-    """
-    Verifies the OTP token submitted by the user.
     
-    Uses VerifyTokenForm for user input and communicates with Firebase to verify the token.
-    """
-    form = VerifyTokenForm()
-
+    # Ensure car is available
+    if not car.availability:
+        flash('This car is no longer available', 'warning')
+        return redirect(url_for('main.home'))
+    
+    form = RentalForm()
+    
     if form.validate_on_submit():
-        otp_token = form.token.data
+        # Calculate rental duration and total cost
+        rental_days = (form.end_date.data - form.start_date.data).days
+        if rental_days <= 0:
+            flash('End date must be after start date', 'danger')
+            return redirect(url_for('main.car', car_id=car.id))
+        
+        total_amount = rental_days * car.price_per_day
+        
+        # Create rental record
+        rental = Rental(
+            start_date=form.start_date.data,
+            end_date=form.end_date.data,
+            total_amount=total_amount,
+            car_id=car.id,
+            user_id=current_user.id
+        )
+        
+        db.session.add(rental)
+        db.session.commit()
+        
+        return redirect(url_for('main.payment', rental_id=rental.id))
+    
+    return render_template('car.html', car=car, form=form)
 
-        try:
-            # Verify the token using Firebase Admin SDK
-            decoded_token = auth.verify_id_token(otp_token)
-            if decoded_token:
-                # Mark the current user as verified
-                current_user.verified = True
-                db.session.commit()
+@main.route("/payment/<int:rental_id>", methods=['GET'])
+@login_required
+def payment(rental_id):
+    """Show payment page for a rental"""
+    rental = Rental.query.get_or_404(rental_id)
+    
+    # Verify rental belongs to current user
+    if rental.user_id != current_user.id:
+        flash('You are not authorized to view this page', 'danger')
+        return redirect(url_for('main.home'))
+    
+    # Verify car is still available
+    car = Car.query.get_or_404(rental.car_id)
+    if not car.availability:
+        flash('This car is no longer available', 'warning')
+        return redirect(url_for('main.home'))
+    
+    return render_template(
+        'payment.html',
+        rental=rental,
+        car=car,
+        public_key=Config.PAYSTACK_PUBLIC_KEY)
 
-                flash('Phone number verified successfully!', 'success')
-                return jsonify({"success": True, "message": "Phone number verified successfully!"})
-            else:
-                return jsonify({"success": False, "message": "Invalid or expired token."}), 400
-
-        except ValueError as ve:
-            print(f"Token verification failed: {ve}")
-            return jsonify({"success": False, "message": "Invalid token format."}), 400
-
-        except Exception as e:
-            print(f"Verification error: {e}")
-            return jsonify({"success": False, "message": "Verification failed. Please try again later."}), 500
-
-    return render_template('verify_token.html', title="Verify OTP", form=form)
-
-@main.route("/create-checkout-session/<int:car_id>", methods=['POST'])
+@main.route("/create-checkout-session/<int:car_id>", methods=['POST'])  
 @login_required
 def create_checkout_session(car_id):
-    """
-    Initializes a new transaction on PayStack for the selected car.
-
-    Creates a checkout session with the car's price and the user's email, then returns the session ID.
-    Requires the user to be logged in.
-    """
-
     car = Car.query.get_or_404(car_id)
-    session = paystack.Transaction.initialize(reference=f'car_{car.id}',
-            amount=int(car.price_per_day * 100),
+    if car.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        result = paystack_initialize_transaction(
             email=current_user.email,
-            callback_url=url_for('main.success', car_id=car.id, _external=True))
-    return jsonify({'id': session['data']['reference']})
+            amount=car.price_per_day,
+            reference=f'car_{car.id}',
+            callback_url=url_for('main.payment_success', car_id=car.id, _external=True)
+        )
+        
+        if result.get('status'):
+            return jsonify({
+                'authorization_url': result['data']['authorization_url'],
+                'access_code': result['data']['access_code']
+            })
+        else:
+            return jsonify({'error': result.get('message', 'Payment initialization failed')}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-@main.route("/success/<int:car_id>")
+@main.route("/payment-success/<int:rental_id>")
 @login_required
-def success(car_id):
-    """
-    Marks a car as unavailable after a successful payment.
-
-    Updates the car's availability status in the database and flashes a success message.
-    Redirects to the home page.
-    Requires the user to be logged in.
-    """
-
-    car = Car.query.get_or_404(car_id)
+def payment_success(rental_id):
+    """Handle successful payment callback"""
+    rental = Rental.query.get_or_404(rental_id)
+    
+    if rental.user_id != current_user.id:
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('main.home'))
+    
+    car = Car.query.get_or_404(rental.car_id)
     car.availability = False
+    rental.payment_status = True
     db.session.commit()
-    flash('Payment successful! Your car has been booked.', 'success')
+    
+    # Send booking confirmation email
+    send_booking_email(
+        user=current_user,
+        subject="Booking Confirmation",
+        template='email/booking_confirmation.html',
+        rental=rental,
+        car=car
+    )
+    
+    flash('Payment successful! Your booking is confirmed.', 'success')
+    return redirect(url_for('main.booking_confirmation', rental_id=rental.id))
+
+@main.route("/booking-confirmation/<int:rental_id>")
+@login_required
+def booking_confirmation(rental_id):
+    """Show booking confirmation details"""
+    rental = Rental.query.get_or_404(rental_id)
+    
+    if rental.user_id != current_user.id:
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('main.home'))
+    
+    return render_template('booking_confirmation.html', rental=rental)
+
+@main.route("/payment-cancel/<int:rental_id>")
+@login_required
+def payment_cancel(rental_id):
+    """Handle payment cancellation"""
+    rental = Rental.query.get_or_404(rental_id)
+    
+    if rental.user_id != current_user.id:
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('main.home'))
+    
+    # Delete the rental record if payment was cancelled
+    if not rental.payment_status:
+        db.session.delete(rental)
+        db.session.commit()
+        flash('Booking cancelled', 'info')
+    
     return redirect(url_for('main.home'))
 
-@main.route("/cancel")
+@main.route("/my-bookings")
 @login_required
-def cancel():
-    """
-    Handles payment cancellation.
+def my_bookings():
+    """Show current user's booking history"""
+    # Get all rentals for current user, ordered by most recent
+    rentals = Rental.query.filter_by(user_id=current_user.id)\
+                         .order_by(Rental.start_date.desc())\
+                         .all()
+    
+    # Separate into upcoming and past rentals
+    now = datetime.utcnow()
+    upcoming = [r for r in rentals if r.start_date > now]
+    past = [r for r in rentals if r.start_date <= now]
+    
+    return render_template('my_bookings.html', 
+                         upcoming=upcoming, 
+                         past=past)
 
-    Flashes a cancellation message and redirects to the home page.
-    Requires the user to be logged in.
-    """
 
-    flash('Payment canceled. Please try again.', 'try again')
-    return redirect(url_for('main.home'))
-
-@main.route("/send_token", methods=["GET", "POST"])
+@main.route("/cancel-booking/<int:rental_id>", methods=['POST'])
 @login_required
-def send_token():
-    """
-    Initiates the OTP process for the user's phone number.
+def cancel_booking(rental_id):
+    """Cancel a booking with proper constraints"""
+    rental = Rental.query.get_or_404(rental_id)
+    
+    # Authorization check
+    if rental.user_id != current_user.id:
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('main.my_bookings'))
+    
+    # Time constraint - can't cancel within 24 hours of start
+    if datetime.utcnow() > rental.start_date - timedelta(hours=24):
+        flash('Cannot cancel booking within 24 hours of rental start', 'warning')
+        return redirect(url_for('main.my_bookings'))
+    
+    # Refund logic would go here (integration with Paystack refund API)
+    
+    # Mark car as available again
+    car = Car.query.get_or_404(rental.car_id)
+    car.availability = True
+    
+    # Send cancellation email
+    send_booking_email(
+        user=current_user,
+        subject="Booking Cancellation",
+        template='email/cancel_booking.html',
+        rental=rental
+    )
+    
+    # Delete the rental record
+    db.session.delete(rental)
+    db.session.commit()
+    
+    flash('Booking cancelled successfully', 'success')
+    return redirect(url_for('main.my_bookings'))
 
-    Uses Firebase Authentication to handle OTP sending and user registration if needed.
-    """
-    phone_number = current_user.phone_number  # Assuming `phone_number` exists in your User model
-
-    if not phone_number:
-        flash('Phone number is missing. Please update your profile.', 'danger')
-        return redirect(url_for('main.profile'))
-
-    if request.method == "POST":
-        try:
-            # Check or create Firebase user for the phone number
-            try:
-                auth.get_user_by_phone_number(phone_number)
-                flash('Phone number is already registered with Firebase.', 'info')
-            except auth.UserNotFoundError:
-                auth.create_user(phone_number=phone_number)
-                flash('User created successfully in Firebase.', 'success')
-
-            flash('Verification initiated. Follow the instructions sent to your phone.', 'info')
-        except FirebaseError as e:
-            print(f"Firebase error: {e}")
-            flash('Failed to initiate verification. Please try again later.', 'danger')
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            flash('An unexpected error occurred. Please try again later.', 'danger')
-
-        return redirect(url_for('main.verify_token'))  # Adjust as needed for your flow
-
-    return render_template('send_token.html', title="Send OTP", phone_number=phone_number)
-
-
-@main.route('/firebase-config', methods=['GET'])
-def firebase_config():
-    """
-    Provides Firebase configuration to the frontend securely.
-    """
-    firebase_config = {
-        "apiKey": os.getenv("FIREBASE_API_KEY"),
-        "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
-        "projectId": os.getenv("FIREBASE_PROJECT_ID"),
-        "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
-        "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
-        "appId": os.getenv("FIREBASE_APP_ID"),
+def send_booking_email(user, subject, template, **kwargs):
+    """Send booking-related emails using Mailjet"""
+    # Render the HTML template
+    html_content = render_template(template, user=user, **kwargs)
+    
+    # Mailjet API request
+    mailjet_url = "https://api.mailjet.com/v3.1/send"
+    auth = (current_app.config['MAILJET_API_KEY'], 
+            current_app.config['MAILJET_API_SECRET'])
+    
+    data = {
+        "Messages": [{
+            "From": {
+                "Email": current_app.config['MAILJET_SENDER_EMAIL'],
+                "Name": current_app.config['MAILJET_SENDER_NAME']
+            },
+            "To": [{
+                "Email": user.email,
+                "Name": user.username
+            }],
+            "Subject": subject,
+            "HTMLPart": html_content
+        }]
     }
+    
+    try:
+        response = requests.post(
+            mailjet_url,
+            json=data,
+            auth=auth,
+            timeout=10  # seconds
+        )
+        
+        if response.status_code != 200:
+            current_app.logger.error(
+                f"Mailjet API error: {response.status_code} - {response.text}"
+            )
+    except Exception as e:
+        current_app.logger.error(f"Error sending email: {str(e)}")
 
-    missing_keys = [key for key, value in firebase_config.items() if not value]
-    if missing_keys:
-        return jsonify({"error": f"Missing environment variables: {', '.join(missing_keys)}"}), 500
 
-    return jsonify(firebase_config)
+def paystack_initialize_transaction(email, amount, reference, callback_url):
+    paystack_secret_key = Config.PAYSTACK_SECRET_KEY
+    url = "https://api.paystack.co/transaction/initialize"
+    headers = {
+        "Authorization": f"Bearer {paystack_secret_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "email": email,
+        "amount": str(int(amount * 100)),  # Paystack expects amount in kobo
+        "reference": reference,
+        "callback_url": callback_url
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
+@main.route('/template-test')
+def template_test():
+    try:
+        return render_template('home.html', cars=[])
+    except Exception as e:
+        return f"Template error: {str(e)}"

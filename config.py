@@ -11,3 +11,8 @@ class Config:
     GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
     PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY')
     PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY')
+    MAILJET_API_KEY = os.getenv('MAILJET_API_KEY')
+    MAILJET_API_SECRET = os.getenv('MAILJET_API_SECRET')
+    MAILJET_SENDER_EMAIL = 'no-reply@yourdomain.com'
+    MAILJET_SENDER_NAME = 'Wise Wheel App'
+    TEMPLATES_AUTO_RELOAD = True
