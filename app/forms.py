@@ -57,6 +57,7 @@ class LoginForm(FlaskForm):
     remember = BooleanField('Remember Me')
     submit = SubmitField('Login')
 
+
 class RentalForm(FlaskForm):
     start_date = DateField('Start Date', format='%Y-%m-%d', 
                           validators=[DataRequired()])
@@ -65,6 +66,7 @@ class RentalForm(FlaskForm):
     submit = SubmitField('Book Now')
 
 # Remove VerifyTokenForm since we're using email verification now
+
 
 class PaymentForm(FlaskForm):
     card_number = StringField('Card Number', validators=[

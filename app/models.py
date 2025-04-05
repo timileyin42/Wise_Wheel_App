@@ -104,3 +104,4 @@ class Rental(db.Model):
     payment_status = db.Column(db.Boolean, default=False)
     car_id = db.Column(db.Integer, db.ForeignKey('car.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
