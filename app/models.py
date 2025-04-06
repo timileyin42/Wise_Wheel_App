@@ -90,6 +90,7 @@ class Car(db.Model):
     price_per_day = db.Column(db.Float, nullable=False)
     availability = db.Column(db.Boolean, default=True)
     image_file = db.Column(db.String(20), nullable=False, default='car_default.jpg')
+    __searchable__ = ['maker', 'model', 'description', 'type']
     date_added = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Rental(db.Model):

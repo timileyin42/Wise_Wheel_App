@@ -23,4 +23,4 @@ class Config:
     
     # Ensure upload folder exists
     if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOED_FOLDER)
+        os.makedirs(UPLOAD_FOLDER)

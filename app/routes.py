@@ -7,26 +7,96 @@ from app.forms import RegistrationForm, LoginForm, RentalForm, PaymentForm
 from app.models import User, Car, Rental
 from flask_login import login_user, current_user, logout_user, login_required
 from flask_mail import Message
-from config import Config, UPLOAD_FOLDER
-from app.utils import send_email
-
+from config import Config
+from .utils import send_email
+from .decorators import admin_required
 
 paystack_secret_key = Config.PAYSTACK_SECRET_KEY
 paystack_public_key = Config.PAYSTACK_PUBLIC_KEY
+upload_folder = Config.UPLOAD_FOLDER
 
 main = Blueprint('main', __name__)
 main = Blueprint('main', __name__, template_folder='../templates')
 
-
-@main.route("/")
-@main.route("/home")
+@main.route('/')
+@main.route('/home')
 def home():
-    """
-    Displays the home page showing all available cars for rent.
+    page = request.args.get('page', 1, type=int)
+    pagination = Car.query.paginate(page=page, per_page=9)
+    cars = pagination.items
+    return render_template('home.html', cars=cars, pagination=pagination)
 
-    This view fetches all cars from the database and passes them to the 'home.html' template.
-    """
-    cars = Car.query.all()
+@main.route('/search')
+def search_cars():
+    # Get search parameters
+    search_term = request.args.get('q', '').strip().lower()
+    car_type = request.args.get('type', '')
+    price_range = request.args.get('price', '')
+    year_range = request.args.get('year', '')
+    page = request.args.get('page', 1, type=int)
+    
+    # Start with base query
+    query = Car.query.filter_by(availability=True)
+    
+    # Apply search term filter
+    if search_term:
+        query = query.filter(
+            db.or_(
+                Car.maker.ilike(f'%{search_term}%'),
+                Car.model.ilike(f'%{search_term}%'),
+                Car.description.ilike(f'%{search_term}%')
+            )
+        )
+    
+    # Apply type filter
+    if car_type:
+        query = query.filter(Car.type.ilike(f'%{car_type}%'))
+    
+    # Apply price filter
+    if price_range:
+        if '-' in price_range:
+            min_price, max_price = map(float, price_range.split('-'))
+            query = query.filter(Car.price_per_day.between(min_price, max_price))
+        else:
+            min_price = float(price_range)
+            query = query.filter(Car.price_per_day >= min_price)
+    
+    # Apply year filter
+    if year_range:
+        if '-' in year_range:
+            min_year, max_year = map(int, year_range.split('-'))
+            query = query.filter(Car.year.between(min_year, max_year))
+        else:
+            min_year = int(year_range)
+            query = query.filter(Car.year >= min_year)
+    
+    # Paginate results
+    pagination = query.paginate(page=page, per_page=9, error_out=False)
+    cars = pagination.items
+    
+    return render_template('home.html', 
+                         cars=cars,
+                         pagination=pagination,
+                         search_term=search_term,
+                         car_type=car_type,
+                         price_range=price_range,
+                         year_range=year_range)
+
+@main.route('/filter')
+def filter_cars():
+    price_range = request.args.get('price')
+    car_type = request.args.get('type')
+
+    query = Car.query.filter_by(availability=True)
+
+    if price_range:
+        min_price, max_price = map(float, price_range.split('-'))
+        query = query.filter(Car.price_per_day.between(min_price, max_price))
+
+    if car_type:
+        query = query.filter_by(type=car_type)
+
+    cars = query.all()
     return render_template('home.html', cars=cars)
 
 @main.route('/debug-templates')
@@ -61,7 +131,7 @@ def register():
             email=form.email.data,
             password=hashed_password,
             phone_number=form.phone.data,
-            is_verified=False
+            is_verified=False,
             is_admin=is_admin
         )
         

@@ -25,8 +25,8 @@ def make_shell_context():
 if __name__ == '__main__':
     # Configuration
     host = os.getenv('FLASK_RUN_HOST', '0.0.0.0')
-    port = int(os.getenv('FLASK_RUN_PORT', 5000))
-    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    port = int(os.getenv('FLASK_RUN_PORT', 3000))
+    debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
     
     # Run the application
     app.run(
@@ -34,5 +34,5 @@ if __name__ == '__main__':
         port=port,
         debug=debug,
         threaded=True,  # Handle multiple requests simultaneously
-        # ssl_context='adhoc'  # Uncomment for HTTPS during development
+        ssl_context='adhoc'  # Uncomment for HTTPS during development
     )

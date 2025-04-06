@@ -11,7 +11,9 @@
                     {% if not current_user.is_authenticated %}
                     <a href="{{ url_for('main.register') }}" class="btn btn-primary btn-lg me-2">Get Started</a>
                     {% endif %}
-                    <a href="#available-cars" class="btn btn-outline-light btn-lg">Browse Cars</a>
+                    <a href="{{ url_for('main.home') }}#available-cars" class="btn btn-outline-light btn-lg">
+                        Browse Cars
+                    </a>
                 </div>
             </div>
         </div>
@@ -22,11 +24,12 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">Available Vehicles</h2>
             <div class="w-50">
-                <form class="d-flex" id="searchForm">
-                    <input type="text" id="carSearch" class="form-control form-control-lg" 
-                           placeholder="Search by make, model or year...">
+                <form method="GET" action="{{ url_for('main.search_cars') }}" class="d-flex" id="searchForm">
+                    <input type="text" name="q" class="form-control form-control-lg"
+                           placeholder="Search by make, model or year..."
+                           value="{{ search_term or '' }}">
                     <button type="submit" class="btn btn-primary ms-2">
-                        <i class="fas fa-search"></i>
+                        <i class="fas fa-search me-2"></i>Search
                     </button>
                 </form>
             </div>
@@ -35,91 +38,84 @@
         <!-- Filter Options -->
         <div class="row mb-4">
             <div class="col-md-3">
-                <select class="form-select" id="priceFilter">
+                <select class="form-select" name="price" onchange="this.form.submit()">
                     <option value="">All Prices</option>
-                    <option value="0-50">Under $50/day</option>
-                    <option value="50-100">$50 - $100/day</option>
-                    <option value="100-150">$100 - $150/day</option>
-                    <option value="150">Over $150/day</option>
+                    <option value="0-50" {% if price_range == '0-50' %}selected{% endif %}>Under $50/day</option>
+                    <option value="50-100" {% if price_range == '50-100' %}selected{% endif %}>$50 - $100/day</option>
+                    <option value="100-150" {% if price_range == '100-150' %}selected{% endif %}>$100 - $150/day</option>
+                    <option value="150" {% if price_range == '150' %}selected{% endif %}>Over $150/day</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <select class="form-select" id="typeFilter">
+                <select class="form-select" name="type" onchange="this.form.submit()">
                     <option value="">All Types</option>
-                    <option value="sedan">Sedan</option>
-                    <option value="suv">SUV</option>
-                    <option value="truck">Truck</option>
-                    <option value="luxury">Luxury</option>
+                    <option value="sedan" {% if car_type == 'sedan' %}selected{% endif %}>Sedan</option>
+                    <option value="suv" {% if car_type == 'suv' %}selected{% endif %}>SUV</option>
+                    <option value="truck" {% if car_type == 'truck' %}selected{% endif %}>Truck</option>
+                    <option value="luxury" {% if car_type == 'luxury' %}selected{% endif %}>Luxury</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <select class="form-select" id="yearFilter">
+                <select class="form-select" name="year" onchange="this.form.submit()">
                     <option value="">All Years</option>
-                    <option value="2020-2023">2020 - 2023</option>
-                    <option value="2015-2019">2015 - 2019</option>
-                    <option value="2010-2014">2010 - 2014</option>
+                    <option value="2020-2023" {% if year_range == '2020-2023' %}selected{% endif %}>2020 - 2023</option>
+                    <option value="2015-2019" {% if year_range == '2015-2019' %}selected{% endif %}>2015 - 2019</option>
+                    <option value="2010-2014" {% if year_range == '2010-2014' %}selected{% endif %}>2010 - 2014</option>
                 </select>
             </div>
             <div class="col-md-3">
-                <button class="btn btn-outline-secondary w-100" id="resetFilters">
+                <a href="{{ url_for('main.home') }}" class="btn btn-outline-secondary w-100">
                     <i class="fas fa-redo me-2"></i>Reset
-                </button>
+                </a>
             </div>
         </div>
 
         <!-- Cars Grid -->
-        <div class="row g-4" id="carsContainer">
+        <div class="row g-4">
             {% for car in cars %}
             <div class="col-lg-4 col-md-6">
-                <div class="card h-100 shadow-sm">
-                    <div class="position-relative">
-                        <img src="{{ url_for('static', filename='images/cars/' + car.image_file) }}" 
-                             class="card-img-top" 
-                             alt="{{ car.maker }} {{ car.model }}"
-                             style="height: 200px; object-fit: cover;">
-                        <span class="position-absolute top-0 end-0 m-2 badge bg-{{ 'success' if car.availability else 'danger' }}">
-                            {{ 'Available' if car.availability else 'Booked' }}
-                        </span>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title mb-0">{{ car.maker }} {{ car.model }}</h5>
-                            <h5 class="text-primary mb-0">${{ "%.2f"|format(car.price_per_day) }}</h5>
-                        </div>
-                        <p class="text-muted mb-2">{{ car.year }} • {{ car.type or 'Sedan' }} • {{ car.seats or '4' }} seats</p>
-                        {% if car.description %}
-                        <p class="card-text text-truncate">{{ car.description }}</p>
-                        {% endif %}
-                    </div>
-                    <div class="card-footer bg-white">
-                        <div class="d-grid gap-2">
-                            {% if car.availability %}
-                            <a href="{{ url_for('main.car', car_id=car.id) }}" 
-                               class="btn btn-primary">
-                               <i class="fas fa-calendar-check me-2"></i>Book Now
-                            </a>
-                            {% else %}
-                            <button class="btn btn-outline-secondary" disabled>
-                                Currently Unavailable
-                            </button>
-                            {% endif %}
-                            <a href="{{ url_for('main.car', car_id=car.id) }}" 
-                               class="btn btn-outline-primary">
-                               <i class="fas fa-info-circle me-2"></i>View Details
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                <!-- Your existing car card HTML here -->
             </div>
             {% else %}
             <div class="col-12">
                 <div class="alert alert-info text-center">
-                    <h4 class="alert-heading">No Vehicles Available</h4>
-                    <p>Please check back later for new arrivals.</p>
+                    <h4 class="alert-heading">No Vehicles Found</h4>
+                    <p>Try adjusting your search or filters</p>
                 </div>
             </div>
             {% endfor %}
         </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.search', page=pagination.prev_num, q=search_term, type=car_type, price=price_range, year=year_range) }}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in pagination.iter_pages() %}
+                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('main.search_cars', page=page_num, q=search_term, type=car_type, price=price_range, year=year_range) }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.search_cars', page=pagination.next_num, q=search_term, type=car_type, price=price_range, year=year_range) }}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

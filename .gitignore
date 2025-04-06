@@ -1,5 +1,5 @@
 #ignore this file
 
 .env
-firebase-adminsdk.json
+__pycache__/
 myenv/

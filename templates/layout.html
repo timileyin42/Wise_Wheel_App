@@ -32,7 +32,7 @@
                         <a class="nav-link" href="{{ url_for('main.home') }}">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.cars') }}">Browse Cars</a>
+                        <a class="nav-link" href="{{ url_for('main.car', car_id=1) }}" class="text-white">Browse Cars</a>
                     </li>
                     
                     {% if current_user.is_authenticated %}
@@ -75,15 +75,15 @@
                             <li><a class="dropdown-item" href="{{ url_for('main.profile') }}">My Profile</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('main.edit_profile') }}">Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Logout</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.logout') }}">Logout</a></li>
                         </ul>
                     </li>
                     {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                        <a class="nav-link" href="{{ url_for('main.login') }}">Login</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a>
+                        <a class="nav-link" href="{{ url_for('main.register') }}">Register</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -120,7 +120,7 @@
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
                         <li><a href="{{ url_for('main.home') }}" class="text-white">Home</a></li>
-                        <li><a href="{{ url_for('main.cars') }}" class="text-white">Browse Cars</a></li>
+                        <li><a href="{{ url_for('main.car', car_id=1) }}" class="text-white">Browse Cars</a></li>
                         {% if current_user.is_authenticated %}
                         <li><a href="{{ url_for('main.my_bookings') }}" class="text-white">My Bookings</a></li>
                         {% endif %}
