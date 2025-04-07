@@ -6,16 +6,16 @@
             <div class="card shadow">
                 <div class="card-body p-4">
                     <h2 class="card-title text-center mb-4">Create Your Account</h2>
-                    
+
                     <form method="POST" action="{{ url_for('main.register') }}" novalidate>
                         {{ form.hidden_tag() }}
-                        
+
                         <div class="row g-3">
                             <!-- Username Field -->
                             <div class="col-md-6">
-                                <div class="form-floating mb-3">
+                                <div class="mb-3">
+                                    {{ form.username.label(class="form-label visually-hidden") }}
                                     {{ form.username(class="form-control", placeholder="Username") }}
-                                    {{ form.username.label(class="form-label") }}
                                     {% if form.username.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.username.errors %}
@@ -25,12 +25,12 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            
+
                             <!-- Phone Field -->
                             <div class="col-md-6">
-                                <div class="form-floating mb-3">
+                                <div class="mb-3">
+                                    {{ form.phone.label(class="form-label visually-hidden") }}
                                     {{ form.phone(class="form-control", placeholder="Phone") }}
-                                    {{ form.phone.label(class="form-label") }}
                                     <small class="text-muted">We'll send a verification code</small>
                                     {% if form.phone.errors %}
                                     <div class="invalid-feedback d-block">
@@ -41,12 +41,12 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            
+
                             <!-- Email Field -->
                             <div class="col-12">
-                                <div class="form-floating mb-3">
+                                <div class="mb-3">
+                                    {{ form.email.label(class="form-label visually-hidden") }}
                                     {{ form.email(class="form-control", placeholder="Email") }}
-                                    {{ form.email.label(class="form-label") }}
                                     {% if form.email.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.email.errors %}
@@ -56,18 +56,18 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            
+
                             <!-- Password Field -->
                             <div class="col-md-6">
-                                <div class="form-floating mb-3">
+                                <div class="mb-3">
+                                    {{ form.password.label(class="form-label visually-hidden") }}
                                     <div class="input-group">
-                                        {{ form.password(class="form-control", placeholder="Password", id="password") }}
-                                        {{ form.password.label(class="form-label") }}
+                                        {{ form.password(class="form-control", placeholder="Password") }}
                                         <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </div>
-                                    <div class="form-text">At least 8 characters with numbers and symbols</div>
+                                    <small class="text-muted">At least 8 characters with numbers and symbols</small>
                                     {% if form.password.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.password.errors %}
@@ -77,12 +77,12 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            
+
                             <!-- Confirm Password Field -->
                             <div class="col-md-6">
-                                <div class="form-floating mb-3">
+                                <div class="mb-3">
+                                    {{ form.confirm_password.label(class="form-label visually-hidden") }}
                                     {{ form.confirm_password(class="form-control", placeholder="Confirm Password") }}
-                                    {{ form.confirm_password.label(class="form-label") }}
                                     {% if form.confirm_password.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.confirm_password.errors %}
@@ -92,7 +92,7 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            
+
                             <!-- Submit Button -->
                             <div class="col-12">
                                 <div class="d-grid">
@@ -101,7 +101,7 @@
                             </div>
                         </div>
                     </form>
-                    
+
                     <div class="mt-4 text-center">
                         <p class="mb-0">Already have an account? <a href="{{ url_for('main.login') }}">Sign in</a></p>
                     </div>
@@ -118,15 +118,16 @@
 document.addEventListener('DOMContentLoaded', function() {
     const togglePassword = document.querySelector('#togglePassword');
     const password = document.querySelector('#password');
-    
+
     if (togglePassword && password) {
         togglePassword.addEventListener('click', function() {
             const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
             password.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
             this.querySelector('i').classList.toggle('fa-eye-slash');
         });
     }
-    
+
     // Phone number formatting
     const phoneInput = document.querySelector('input[name="phone"]');
     if (phoneInput) {
@@ -138,4 +139,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
