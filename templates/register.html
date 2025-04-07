@@ -14,8 +14,9 @@
                             <!-- Username Field -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.username.label(class="form-label visually-hidden") }}
-                                    {{ form.username(class="form-control", placeholder="Username") }}
+                                    <label for="username" class="form-label visually-hidden">Username</label>
+                                    <input type="text" class="form-control" id="username" name="username"
+                                           placeholder="Username" required>
                                     {% if form.username.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.username.errors %}
@@ -26,12 +27,18 @@
                                 </div>
                             </div>
 
-                            <!-- Phone Field -->
+                            <!-- Phone Field with Country Code -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.phone.label(class="form-label visually-hidden") }}
-                                    {{ form.phone(class="form-control", placeholder="Phone") }}
-                                    <small class="text-muted">We'll send a verification code</small>
+                                    <label for="phone" class="form-label visually-hidden">Phone Number</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light p-2" style="width: 80px;">+234</span>
+                                        <input type="tel" class="form-control" id="phone" name="phone"
+                                               placeholder="701 234 5678" required
+                                               pattern="[0-9]{3,4} [0-9]{3} [0-9]{4}">
+                                    </div>
+                                    <small class="text-muted">Enter your Nigerian number (e.g. 701 234 5678 or 0701 234 5678)</small>
+                                    <input type="hidden" id="full_phone" name="full_phone" value="+234">
                                     {% if form.phone.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.phone.errors %}
@@ -45,8 +52,9 @@
                             <!-- Email Field -->
                             <div class="col-12">
                                 <div class="mb-3">
-                                    {{ form.email.label(class="form-label visually-hidden") }}
-                                    {{ form.email(class="form-control", placeholder="Email") }}
+                                    <label for="email" class="form-label visually-hidden">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email"
+                                           placeholder="Email" required>
                                     {% if form.email.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.email.errors %}
@@ -60,9 +68,10 @@
                             <!-- Password Field -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.password.label(class="form-label visually-hidden") }}
+                                    <label for="password" class="form-label visually-hidden">Password</label>
                                     <div class="input-group">
-                                        {{ form.password(class="form-control", placeholder="Password") }}
+                                        <input type="password" class="form-control" id="password" name="password"
+                                               placeholder="Password" required>
                                         <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -81,8 +90,9 @@
                             <!-- Confirm Password Field -->
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.confirm_password.label(class="form-label visually-hidden") }}
-                                    {{ form.confirm_password(class="form-control", placeholder="Confirm Password") }}
+                                    <label for="confirm_password" class="form-label visually-hidden">Confirm Password</label>
+                                    <input type="password" class="form-control" id="confirm_password"
+                                           name="confirm_password" placeholder="Confirm Password" required>
                                     {% if form.confirm_password.errors %}
                                     <div class="invalid-feedback d-block">
                                         {% for error in form.confirm_password.errors %}
@@ -96,7 +106,7 @@
                             <!-- Submit Button -->
                             <div class="col-12">
                                 <div class="d-grid">
-                                    {{ form.submit(class="btn btn-primary btn-lg") }}
+                                    <button type="submit" class="btn btn-primary btn-lg">Sign Up</button>
                                 </div>
                             </div>
                         </div>
@@ -113,9 +123,9 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Password Toggle Script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Password toggle functionality
     const togglePassword = document.querySelector('#togglePassword');
     const password = document.querySelector('#password');
 
@@ -128,13 +138,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Phone number formatting
-    const phoneInput = document.querySelector('input[name="phone"]');
+    // Nigerian phone number handling
+    const phoneInput = document.querySelector('#phone');
+    const fullPhoneInput = document.querySelector('#full_phone');
+
     if (phoneInput) {
+        // Format as Nigerian number (XXX XXX XXXX or XXXX XXX XXXX)
         phoneInput.addEventListener('input', function(e) {
-            const x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-            e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // Format based on length
+            if (value.length > 3) {
+                const splitPos = value.length > 10 ? 4 : 3;
+                value = value.substring(0, splitPos) + ' ' + value.substring(splitPos);
+            }
+            if (value.length > (value.length > 10 ? 8 : 7)) {
+                const splitPos = value.length > 10 ? 8 : 7;
+                value = value.substring(0, splitPos) + ' ' + value.substring(splitPos);
+            }
+            
+            e.target.value = value.substring(0, (value.length > 10 ? 13 : 12));
+            fullPhoneInput.value = '+234' + value.replace(/\D/g, '');
         });
+
+        // Validate on form submission
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const phoneDigits = phoneInput.value.replace(/\D/g, '');
+                if (phoneDigits.length < 10) {
+                    e.preventDefault();
+                    alert('Please enter a valid Nigerian phone number (10 or 11 digits)');
+                    phoneInput.focus();
+                }
+            });
+        }
     }
 });
 </script>
