@@ -3,3 +3,6 @@
 .env
 __pycache__/
 myenv/
+certs/
+test_connection.py
+reset_alembic_version.py
