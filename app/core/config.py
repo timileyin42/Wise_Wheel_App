@@ -55,8 +55,9 @@ class Settings(BaseSettings):
     # REDIS_URL: Optional[RedisDsn] = None
 
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = ["*"]
+    BACKEND_CORS_ORIGINS: List[str] = ["*"]
     FRONTEND_URL: str
+
     CORS_ORIGINS: List[str] = ["*"]
 
     ENVIRONMENT: str = "development"
