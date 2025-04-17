@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Database
     POSTGRES_URL: PostgresDsn
     TEST_DATABASE_URL: Optional[PostgresDsn] = None
+    DATABASE_CA: str
 
     # Auth
     SECRET_KEY: str
