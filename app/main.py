@@ -56,6 +56,11 @@ app.include_router(payments.router, prefix="/api", tags=["Payments"])
 app.include_router(users.router, prefix="/api", tags=["Users"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
+@app.get("/", status_code=status.HTTP_200_OK, tags=["System"])
+async def root():
+    """Root endpoint to confirm the API is running"""
+    return {"message": "WiseWheel API is running!"}
+
 @app.get("/health", status_code=status.HTTP_200_OK, tags=["System"])
 async def health_check():
     """System health check endpoint"""
@@ -79,3 +84,4 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
     )
+
