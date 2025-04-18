@@ -8,6 +8,7 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.utils.geolocation import geocode_address
 from app.utils.cloudinary import upload_car_image
+from datetime import datetime
 
 router = APIRouter(prefix="/cars", tags=["Cars"])
 
@@ -53,6 +54,66 @@ async def create_car(
     car_data_dict = car_data.dict()
     car_data_dict.update({"latitude": lat, "longitude": lng})
     return await CarCRUD().create(db, car_data_dict)
+
+@router.get("/{car_id}/availability")
+async def get_car_availability(
+    car_id: str,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get car availability with optional date range filtering
+    Returns periods with status (available/booked)
+    """
+    car = await get_car_or_404(db, car_id)
+    
+    # Default to next 30 days if no dates provided
+    if not start_date:
+        start_date = datetime.utcnow()
+    if not end_date:
+        end_date = start_date + timedelta(days=30)
+    
+    # Get conflicting bookings
+    bookings = await db.execute(
+        select(Booking)
+        .where(Booking.car_id == car_id)
+        .where(Booking.status == "confirmed")
+        .where(
+            or_(
+                and_(
+                    Booking.start_date <= end_date,
+                    Booking.end_date >= start_date
+                ),
+                Booking.end_date == None  # For open-ended bookings
+            )
+        )
+    )
+    bookings = bookings.scalars().all()
+    
+    # Generate availability periods
+    availability = []
+    current_date = start_date
+    
+    while current_date < end_date:
+        period_end = current_date + timedelta(days=1)
+        is_available = True
+        
+        for booking in bookings:
+            if (booking.start_date <= period_end and 
+                (booking.end_date is None or booking.end_date >= current_date)):
+                is_available = False
+                break
+        
+        availability.append({
+            "start_date": current_date,
+            "end_date": period_end,
+            "status": "available" if is_available else "booked"
+        })
+        
+        current_date = period_end
+    
+    return availability
 
 @router.post("/{car_id}/upload")
 async def upload_car_image(
