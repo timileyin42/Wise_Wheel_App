@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
@@ -30,7 +30,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
@@ -42,6 +41,25 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         algorithm=settings.JWT_ALGORITHM
     )
 
+def decode_access_token(token: str) -> Dict[str, Any]:
+    """Decode JWT token without verification"""
+    try:
+        return jwt.get_unverified_claims(token)
+    except JWTError:
+        return {}
+
+def verify_access_token(token: str) -> Dict[str, Any]:
+    """Verify and decode JWT token"""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        return {}
+
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserResponse:
     """Dependency to get current authenticated user"""
     credentials_exception = HTTPException(
@@ -49,21 +67,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserResponse:
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM]
-        )
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
     
-    # Get user from database
-    # You'll need to implement this database lookup
-    user = await get_user_by_email(email)  # Replace with your CRUD method
+    payload = verify_access_token(token)
+    email: str = payload.get("sub")
+    if email is None:
+        raise credentials_exception
+
+    # Get user from database 
+    user = await get_user_by_email(email)
     if user is None:
         raise credentials_exception
     return user
