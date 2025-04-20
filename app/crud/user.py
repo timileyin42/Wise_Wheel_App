@@ -1,14 +1,14 @@
 from datetime import datetime
-from sqlalchemy import or_, and_
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_password_hash, verify_password
 from app.models.user import User
 from app.schemas.user import UserCreate, UserGoogleCreate, UserUpdate
 from app.crud.base import CRUDBase
-from sqlalchemy.ext.asyncio import AsyncSession
 
 class UserCRUD(CRUDBase[User, UserCreate, UserUpdate]):
     """CRUD operations for User model with auth extensions"""
-    
+
     async def get_by_email(self, db: AsyncSession, email: str) -> User | None:
         """Get user by email address"""
         result = await db.execute(
@@ -33,9 +33,9 @@ class UserCRUD(CRUDBase[User, UserCreate, UserUpdate]):
         return await super().create(db, user_data)
 
     async def authenticate(
-        self, 
-        db: AsyncSession, 
-        email: str, 
+        self,
+        db: AsyncSession,
+        email: str,
         password: str
     ) -> User | None:
         """Authenticate user with email/password"""
@@ -51,6 +51,7 @@ class UserCRUD(CRUDBase[User, UserCreate, UserUpdate]):
         user.last_login = datetime.utcnow()
         db.add(user)
         await db.commit()
+        await db.refresh(user)
         return user
 
     async def mark_verified(self, db: AsyncSession, user: User) -> User:
@@ -58,4 +59,25 @@ class UserCRUD(CRUDBase[User, UserCreate, UserUpdate]):
         user.is_verified = True
         db.add(user)
         await db.commit()
+        await db.refresh(user)
+        return user
+
+    async def update_password(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        new_password: str
+    ) -> User:
+        """Update user password"""
+        hashed_password = get_password_hash(new_password)
+        result = await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(hashed_password=hashed_password)
+        )
+        await db.commit()
+        
+        # Refresh and return updated user
+        user = await self.get(db, user_id)
+        await db.refresh(user)
         return user

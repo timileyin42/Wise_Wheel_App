@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import (
@@ -12,6 +12,7 @@ from app.core.email import send_mailjet_email
 from app.crud.user import UserCRUD
 from app.schemas.user import UserResponse, UserCreate, UserGoogleCreate
 from app.schemas.token import Token
+from app.schemas.auth import PasswordResetRequest, PasswordResetConfirm
 from app.db.session import get_db
 from datetime import timedelta
 
@@ -124,3 +125,51 @@ async def verify_email(
 
     user = await UserCRUD.verify_email(db, payload["sub"])
     return {"message": "Email verified successfully"}
+
+
+@router.post("/auth/forgot-password")
+async def forgot_password(
+    request_data: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """Initiate password reset process"""
+    user = await UserCRUD.get_by_email(db, request_data.email)
+    if not user:
+        # Don't reveal if user doesn't exist
+        return {"message": "If this email exists, a reset link has been sent"}
+
+    reset_token = create_password_reset_token(user.email)
+
+    # In production, send email in background
+    if not settings.DEBUG:
+        background_tasks.add_task(
+            send_password_reset_email,
+            email=user.email,
+            token=reset_token
+        )
+    else:
+        # For development, return the token
+        return {"reset_token": reset_token}
+
+    return {"message": "If this email exists, a reset link has been sent"}
+
+@router.post("/auth/reset-password")
+async def reset_password(
+    request_data: PasswordResetConfirm,
+    db: AsyncSession = Depends(get_db)
+):
+    """Complete password reset process"""
+    email = verify_password_reset_token(request_data.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user = await UserCRUD.get_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update password
+    hashed_password = get_password_hash(request_data.new_password)
+    await UserCRUD.update(db, user.id, {"hashed_password": hashed_password})
+
+    return {"message": "Password updated successfully"}

@@ -43,3 +43,24 @@ async def send_mailjet_email(
     except Exception as e:
         # Implement proper error logging
         print(f"Mailjet error: {str(e)}")
+
+
+
+async def send_password_reset_email(
+    to_email: str,
+    reset_token: str,
+    background_tasks: BackgroundTasks
+):
+    """
+    Send password reset email using your existing Mailjet setup.
+    Frontend will handle all template/design aspects.
+    """
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+
+    await send_mailjet_email(
+        to_email=to_email,
+        subject="Password Reset Request",
+        template_name="password_reset",  # Frontend will handle this
+        context={"reset_url": reset_url},  # Just pass raw data
+        background_tasks=background_tasks
+    )

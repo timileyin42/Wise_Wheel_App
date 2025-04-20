@@ -89,3 +89,27 @@ async def get_current_admin(
             detail="Admin privileges required"
         )
     return current_user
+
+
+def create_password_reset_token(email: str) -> str:
+    """Create a password reset token with short expiration"""
+    expires_delta = timedelta(minutes=30)
+    return create_access_token(
+        data={"sub": email, "type": "password_reset"},
+        expires_delta=expires_delta
+    )
+
+def verify_password_reset_token(token: str) -> Optional[str]:
+    """Verify password reset token and return email if valid"""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
+        )
+        if payload.get("type") != "password_reset":
+            return None
+        email: str = payload.get("sub")
+        return email
+    except JWTError:
+        return None
