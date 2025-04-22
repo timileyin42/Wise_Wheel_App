@@ -30,6 +30,9 @@ async def lifespan(app: FastAPI):
     finally:
         await engine.dispose()
 
+print("Starting WiseWheels API..")
+print("CORS ORIGINS LOADED:", settings.BACKEND_CORS_ORIGINS)
+
 app = FastAPI(
     title=settings.PROJECT_TITLE,
     description=settings.PROJECT_DESCRIPTION,
@@ -77,7 +80,6 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting WiseWheels API..")
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
