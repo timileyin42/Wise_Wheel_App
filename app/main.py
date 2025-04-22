@@ -45,10 +45,7 @@ app = FastAPI(
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://wisewheelapp-staging.up.railway.app",
-    ],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -89,4 +86,3 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
     )
-
