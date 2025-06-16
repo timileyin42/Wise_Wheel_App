@@ -18,17 +18,21 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         result = await db.execute(select(self.model).filter(self.model.id == id))
         return result.scalar_one_or_none()
 
-    async def create(self, db: AsyncSession, obj_in: CreateSchemaType) -> ModelType:
+    async def create(self, db: AsyncSession, obj_in: CreateSchemaType | dict[str, Any]) -> ModelType:
         """Create new record"""
-        db_obj = self.model(**obj_in.dict())  # type: ignore
+        if isinstance(obj_in, dict):
+            db_obj = self.model(**obj_in)  # Handle dictionary input
+        else:
+            db_obj = self.model(**obj_in.dict(exclude_unset=True))  # Handle Pydantic model
+
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)
         return db_obj
 
     async def update(
-        self, 
-        db: AsyncSession, 
+        self,
+        db: AsyncSession,
         db_obj: ModelType,
         obj_in: UpdateSchemaType | dict[str, Any]
     ) -> ModelType:
@@ -37,10 +41,10 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             update_data = obj_in
         else:
             update_data = obj_in.dict(exclude_unset=True)
-        
+
         for field in update_data:
             setattr(db_obj, field, update_data[field])
-        
+
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)

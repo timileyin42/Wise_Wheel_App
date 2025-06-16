@@ -1,7 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, validator, field_validator, model_validator
+from typing import Optional, Any
 import re
+from uuid import UUID
 
 class UserBase(BaseModel):
     """
@@ -65,10 +66,21 @@ class UserResponse(UserBase):
     created_at: datetime
     is_verified: bool
     role: str
-    profile_image: Optional[str]
+    profile_image: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def convert_uuid_fields(cls, data: Any) -> Any:
+        """Convert UUID objects to strings before validation"""
+        if isinstance(data, dict):
+            if 'id' in data and isinstance(data['id'], UUID):
+                data['id'] = str(data['id'])
+        elif hasattr(data, 'id') and isinstance(data.id, UUID):
+            data.id = str(data.id)
+        return data
 
     class Config:
-        from_attributes = True  # Enable ORM mode
+        from_attributes = True
         json_schema_extra = {
             "example": {
                 "id": "550e8400-e29b-41d4-a716-446655440000",

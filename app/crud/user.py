@@ -81,3 +81,29 @@ class UserCRUD(CRUDBase[User, UserCreate, UserUpdate]):
         user = await self.get(db, user_id)
         await db.refresh(user)
         return user
+
+async def get_or_create_google_user(self, db: AsyncSession, userinfo: dict) -> User:
+    """Get or create user from Google OAuth data"""
+    google_id = userinfo.get("sub")
+    email = userinfo.get("email")
+    if not google_id or not email:
+        raise ValueError("Missing Google user info")
+
+    user = await self.get_by_google_id(db, google_id)
+    if user:
+        return user
+
+    # Create new user
+    user_data = {
+        "email": email,
+        "google_id": google_id,
+        "is_verified": True,
+        "is_active": True,
+        "phone": "+0000000000"  # Default phone
+    }
+    if name := userinfo.get("name"):
+        user_data["full_name"] = name
+    if picture := userinfo.get("picture"):
+        user_data["profile_image"] = picture
+
+    return await self.create(db, user_data)
