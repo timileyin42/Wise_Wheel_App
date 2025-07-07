@@ -5,14 +5,21 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from authlib.integrations.starlette_client import OAuth
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.schemas.user import UserResponse
+from app.db.session import get_db
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"], 
+    deprecated="auto",
+    bcrypt__rounds=12,
+    bcrypt__ident="2b"
+)
 
 # OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
 
 # Google OAuth client
 oauth = OAuth()
@@ -60,8 +67,14 @@ def verify_access_token(token: str) -> Dict[str, Any]:
     except JWTError:
         return {}
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserResponse:
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> UserResponse:
     """Dependency to get current authenticated user"""
+    from app.crud.user import UserCRUD
+    from app.models.user import User
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -74,16 +87,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserResponse:
         raise credentials_exception
 
     # Get user from database 
-    user = await get_user_by_email(email)
+    user_crud = UserCRUD(User)
+    user = await user_crud.get_by_email(db, email)
     if user is None:
         raise credentials_exception
-    return user
+    return UserResponse.model_validate(user)
 
 async def get_current_admin(
     current_user: UserResponse = Depends(get_current_user)
 ) -> UserResponse:
     """Dependency to verify admin access"""
-    if not current_user.is_admin:
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"

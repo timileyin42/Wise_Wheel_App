@@ -10,7 +10,7 @@ from app.core.security import (
     verify_access_token
 )
 from app.core.config import settings
-from app.core.email import send_password_reset_email
+from app.core.email import send_password_reset_email, send_mailjet_email
 from app.models.user import User
 from app.crud.user import UserCRUD
 from app.schemas.user import UserResponse, UserCreate
