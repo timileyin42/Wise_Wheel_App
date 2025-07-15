@@ -62,6 +62,15 @@ async def create_car(
     car_data_dict.update({"latitude": lat, "longitude": lng})
     return await car_crud.create(db, car_data_dict)
 
+@router.get("/{car_id}", response_model=CarResponse)
+async def get_car_by_id(
+    car_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get car details by ID"""
+    car = await get_car_or_404(db, car_id)
+    return car
+
 @router.get("/{car_id}/availability")
 async def get_car_availability(
     car_id: str,

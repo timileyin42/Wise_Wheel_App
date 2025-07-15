@@ -18,13 +18,22 @@ async def upload_to_folder(file: UploadFile, folder: str, public_id: Optional[st
     """Upload file to specific Cloudinary folder with validation"""
     try:
         # Validate file type
-        allowed_types = ["image/jpeg", "image/png", "image/webp"]
+        allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
         if file.content_type not in allowed_types:
-            raise HTTPException(400, "Invalid file type. Only JPEG/PNG/WEBP allowed")
+            raise HTTPException(400, f"Invalid file type: {file.content_type}. Only JPEG/PNG/WEBP allowed")
+
+        # Reset file position to beginning
+        await file.seek(0)
+        
+        # Read file content
+        file_content = await file.read()
+        
+        # Reset file position back to beginning for potential future reads
+        await file.seek(0)
 
         # Upload to Cloudinary with folder organization
         result = cloudinary.uploader.upload(
-            file.file,
+            file_content,  # Use file content instead of file.file
             folder=f"wisewheels/{folder}",
             public_id=public_id,  # Use the provided public_id
             use_filename=True,

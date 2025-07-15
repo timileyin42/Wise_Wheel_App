@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_admin
-from app.crud import UserCRUD, CarCRUD, BookingCRUD
+from app.crud.user import UserCRUD
+from app.crud.car import CarCRUD
+from app.crud.booking import BookingCRUD
+from app.models.user import User
+from app.models.car import Car
+from app.models.booking import Booking
 from app.schemas import UserResponse, CarResponse, BookingResponse
 from app.db.session import get_db
 
@@ -15,7 +20,8 @@ async def list_users(
     admin: UserResponse = Depends(get_current_admin)
 ):
     """List all users (Admin only)"""
-    return await UserCRUD.get_multi(db, skip=skip, limit=limit)
+    user_crud = UserCRUD(User)
+    return await user_crud.get_multi(db, skip=skip, limit=limit)
 
 @router.delete("/cars/{car_id}")
 async def delete_car(
@@ -24,7 +30,8 @@ async def delete_car(
     admin: UserResponse = Depends(get_current_admin)
 ):
     """Delete a car listing (Admin only)"""
-    return await CarCRUD.remove(db, id=car_id)
+    car_crud = CarCRUD(Car)
+    return await car_crud.remove(db, id=car_id)
 
 @router.get("/bookings", response_model=list[BookingResponse])
 async def get_all_bookings(
@@ -32,4 +39,5 @@ async def get_all_bookings(
     admin: UserResponse = Depends(get_current_admin)
 ):
     """Get all bookings (Admin only)"""
-    return await BookingCRUD.get_multi(db)
+    booking_crud = BookingCRUD(Booking)
+    return await booking_crud.get_multi(db)

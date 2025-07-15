@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 from app.core.config import settings
 import ssl
 import tempfile
@@ -22,8 +23,13 @@ ssl_ctx.verify_mode = ssl.CERT_REQUIRED
 engine = create_async_engine(
     str(settings.POSTGRES_URL),
     echo=True,
+    poolclass=NullPool,
     connect_args={
-        "ssl": ssl_ctx
+        "ssl": ssl_ctx,
+        "command_timeout": 60,
+        "server_settings": {
+            "application_name": "WiseWheel_App",
+        }
     }
 )
 
@@ -33,7 +39,8 @@ async_session = sessionmaker(
     class_=AsyncSession
 )
 
-async def get_db() -> AsyncSession:
+async def get_db():
+    """Database session generator"""
     async with async_session() as session:
         yield session
 

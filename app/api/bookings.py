@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.booking import BookingCRUD
+from app.models.booking import Booking
 from app.schemas.user import UserResponse
 from app.schemas.booking import BookingResponse, BookingCreate
 from app.core.security import get_current_user
@@ -16,7 +17,8 @@ async def create_booking(
 ):
     """Create new booking"""
     try:
-        return await BookingCRUD.create_with_payment(
+        booking_crud = BookingCRUD(Booking)
+        return await booking_crud.create_with_payment(
             db, booking_data, current_user.id
         )
     except ValueError as e:
@@ -28,4 +30,5 @@ async def get_my_bookings(
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get current user's bookings"""
-    return await BookingCRUD.get_user_bookings(db, current_user.id)
+    booking_crud = BookingCRUD(Booking)
+    return await booking_crud.get_user_bookings(db, current_user.id)

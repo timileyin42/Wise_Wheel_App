@@ -20,6 +20,7 @@ class User(UUIDBase, TimestampMixin):
     
     # Relationships
     bookings = relationship("Booking", back_populates="user")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index('ix_users_email_phone', 'email', 'phone'),

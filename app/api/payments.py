@@ -4,6 +4,7 @@ from fastapi.background import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.crud.booking import BookingCRUD
+from app.models.booking import Booking
 from app.schemas.user import UserResponse
 from app.schemas.payment import PaymentResponse
 from app.db.session import get_db
@@ -18,7 +19,8 @@ async def initialize_payment(
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Initialize Paystack payment"""
-    booking = await BookingCRUD.get(db, booking_id)
+    booking_crud = BookingCRUD(Booking)
+    booking = await booking_crud.get(db, booking_id)
     if not booking or booking.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Booking not found")
     

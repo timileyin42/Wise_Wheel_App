@@ -62,3 +62,55 @@ class BookingCRUD(CRUDBase[Booking, BookingCreate, BookingCreate]):
         db.add(booking)
         await db.commit()
         return booking
+
+    async def get_user_bookings(
+        self,
+        db: AsyncSession,
+        user_id: str
+    ) -> list[Booking]:
+        """Get all bookings for a specific user"""
+        result = await db.execute(
+            select(Booking).filter(Booking.user_id == user_id)
+        )
+        return result.scalars().all()
+
+    async def get_car_bookings(
+        self,
+        db: AsyncSession,
+        car_id: str
+    ) -> list[Booking]:
+        """Get all bookings for a specific car"""
+        result = await db.execute(
+            select(Booking).filter(Booking.car_id == car_id)
+        )
+        return result.scalars().all()
+
+    async def get_active_bookings(
+        self,
+        db: AsyncSession,
+        user_id: str = None
+    ) -> list[Booking]:
+        """Get active bookings (current and future)"""
+        query = select(Booking).filter(Booking.end_date >= datetime.now())
+        
+        if user_id:
+            query = query.filter(Booking.user_id == user_id)
+        
+        result = await db.execute(query)
+        return result.scalars().all()
+
+    async def get_booking_history(
+        self,
+        db: AsyncSession,
+        user_id: str
+    ) -> list[Booking]:
+        """Get booking history for a user (past bookings)"""
+        result = await db.execute(
+            select(Booking).filter(
+                and_(
+                    Booking.user_id == user_id,
+                    Booking.end_date < datetime.now()
+                )
+            )
+        )
+        return result.scalars().all()
