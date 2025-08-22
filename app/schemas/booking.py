@@ -1,6 +1,7 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
-from typing import Optional, ForwardRef
+from pydantic import BaseModel, Field, validator, field_validator, model_validator
+from typing import Optional, ForwardRef, Any
+import uuid
 
 # Forward references to break circular dependencies
 CarResponse = ForwardRef('CarResponse')
@@ -49,6 +50,17 @@ class BookingResponse(BookingBase):
     created_at: datetime
     car: CarResponse
     user: UserResponse
+
+    @model_validator(mode='before')
+    @classmethod
+    def convert_uuid_fields(cls, data: Any) -> Any:
+        """Convert UUID objects to strings before validation"""
+        if isinstance(data, dict):
+            if 'id' in data and isinstance(data['id'], uuid.UUID):
+                data['id'] = str(data['id'])
+        elif hasattr(data, 'id') and isinstance(data.id, uuid.UUID):
+            data.id = str(data.id)
+        return data
 
     class Config:
         from_attributes = True

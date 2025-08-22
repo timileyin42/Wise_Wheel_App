@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from app.models.booking import Booking
 from app.models.car import Car
 from app.schemas.booking import BookingCreate
 from app.crud.base import CRUDBase
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.utils.datetime_utils import to_utc_naive
 
 class BookingCRUD(CRUDBase[Booking, BookingCreate, BookingCreate]):
     """CRUD operations for Booking model with business logic"""
@@ -21,13 +23,22 @@ class BookingCRUD(CRUDBase[Booking, BookingCreate, BookingCreate]):
         if not car or not car.is_available:
             raise ValueError("Car not available for booking")
         
-        # Check date conflicts
+        # Convert timezone-aware datetimes to UTC naive
+        start_date = to_utc_naive(obj_in.start_date)
+        end_date = to_utc_naive(obj_in.end_date)
+        
+        # Validate dates after conversion
+        if start_date >= end_date:
+            raise ValueError(f"Invalid date range: start_date ({start_date}) must be before end_date ({end_date})")
+        
+        # Check date conflicts (only check confirmed bookings)
         existing = await db.execute(
             select(Booking).filter(
                 and_(
                     Booking.car_id == obj_in.car_id,
-                    Booking.start_date <= obj_in.end_date,
-                    Booking.end_date >= obj_in.start_date
+                    Booking.status == "confirmed",
+                    Booking.start_date <= end_date,
+                    Booking.end_date >= start_date
                 )
             )
         )
@@ -35,16 +46,26 @@ class BookingCRUD(CRUDBase[Booking, BookingCreate, BookingCreate]):
             raise ValueError("Booking dates conflict with existing reservation")
         
         # Calculate total price
-        days = (obj_in.end_date - obj_in.start_date).days
+        days = (end_date - start_date).days
         total = days * car.daily_rate
         
         # Create booking record
         booking_data = obj_in.dict()
         booking_data.update({
             "user_id": user_id,
-            "total_amount": total
+            "total_amount": total,
+            "start_date": start_date,
+            "end_date": end_date
         })
-        return await super().create(db, booking_data)
+        booking = await super().create(db, booking_data)
+        
+        # Fetch the booking with eager loaded relationships
+        result = await db.execute(
+            select(Booking)
+            .options(selectinload(Booking.car), selectinload(Booking.user))
+            .filter(Booking.id == booking.id)
+        )
+        return result.scalars().first()
 
     async def confirm_payment(
         self,
@@ -70,7 +91,9 @@ class BookingCRUD(CRUDBase[Booking, BookingCreate, BookingCreate]):
     ) -> list[Booking]:
         """Get all bookings for a specific user"""
         result = await db.execute(
-            select(Booking).filter(Booking.user_id == user_id)
+            select(Booking)
+            .options(selectinload(Booking.car), selectinload(Booking.user))
+            .filter(Booking.user_id == user_id)
         )
         return result.scalars().all()
 

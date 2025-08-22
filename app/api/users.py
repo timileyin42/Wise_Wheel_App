@@ -47,8 +47,8 @@ async def upload_profile_photo(
 ):
     """Upload profile photo to Cloudinary using the utility function"""
     try:
-        print(f"📸 Upload request from user: {current_user.email}")
-        print(f"📄 File info: {file.filename}, {file.content_type}, {file.size} bytes")
+        print(f" Upload request from user: {current_user.email}")
+        print(f" File info: {file.filename}, {file.content_type}, {file.size} bytes")
         
         # Validate file type
         allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
@@ -65,30 +65,30 @@ async def upload_profile_photo(
                 detail="File size too large. Maximum 5MB allowed."
             )
         
-        print(f"🔄 Uploading to Cloudinary...")
+        print(f" Uploading to Cloudinary...")
         # Use the user's ID as the public_id
         image_url = await upload_profile_image(file, public_id=f"user_{current_user.id}")
-        print(f"✅ Upload successful: {image_url}")
+        print(f" Upload successful: {image_url}")
         
         # Update user's profile image in database
         db_user = await user_crud.get_by_email(db, current_user.email)
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        print(f"🔄 Updating user profile image in database...")
+        print(f" Updating user profile image in database...")
         # Update the profile image URL
         updated_user = await user_crud.update(db, db_user, {"profile_image": image_url})
-        print(f"✅ Database update successful")
+        print(f" Database update successful")
         
         return JSONResponse(content={
             "url": image_url,
             "message": "Profile photo uploaded successfully"
         })
     except HTTPException as e:
-        print(f"❌ HTTP Exception: {e.detail}")
+        print(f" HTTP Exception: {e.detail}")
         raise
     except Exception as e:
-        print(f"❌ Unexpected error: {str(e)}")
+        print(f" Unexpected error: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

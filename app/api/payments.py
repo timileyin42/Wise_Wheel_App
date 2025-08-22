@@ -14,15 +14,19 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 
 @router.post("/initialize", response_model=PaymentResponse)
 async def initialize_payment(
-    booking_id: str,
+    booking_id: str = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Initialize Paystack payment"""
     booking_crud = BookingCRUD(Booking)
     booking = await booking_crud.get(db, booking_id)
-    if not booking or booking.user_id != current_user.id:
+    
+    if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied: This booking belongs to another user")
     
     async with httpx.AsyncClient() as client:
         response = await client.post(

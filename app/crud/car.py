@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.booking import Booking
 from datetime import datetime
+from app.utils.datetime_utils import to_utc_naive
 
 class CarCRUD(CRUDBase[Car, CarCreate, CarCreate]):
     """CRUD operations for Car model with geo capabilities"""
@@ -70,6 +71,10 @@ class CarCRUD(CRUDBase[Car, CarCreate, CarCreate]):
         end_date: datetime
     ) -> bool:
         """Check if car is available for specific dates"""
+        # Convert timezone-aware datetimes to UTC naive
+        start_date = to_utc_naive(start_date)
+        end_date = to_utc_naive(end_date)
+        
         conflicting_bookings = await db.execute(
             select(Booking)
             .where(Booking.car_id == car_id)

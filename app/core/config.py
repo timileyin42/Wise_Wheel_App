@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # === Database Configuration ===
     POSTGRES_URL: PostgresDsn
     TEST_DATABASE_URL: Optional[PostgresDsn] = None
-    DATABASE_CA: str
+    DATABASE_CA: Optional[str] = None
 
     # === Authentication ===
     SECRET_KEY: str

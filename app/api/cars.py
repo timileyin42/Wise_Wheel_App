@@ -14,10 +14,11 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.utils.geolocation import geocode_address
 from app.utils.cloudinary import upload_car_image
+from app.utils.datetime_utils import to_utc_naive
 
 router = APIRouter(prefix="/cars", tags=["Cars"])
 
-car_crud = CarCRUD(Car)  # ✅ Single instance used throughout
+car_crud = CarCRUD(Car)  # Single instance used throughout
 
 async def get_car_or_404(db: AsyncSession, car_id: str):
     """Helper function to get car or raise 404"""
@@ -86,8 +87,15 @@ async def get_car_availability(
 
     if not start_date:
         start_date = datetime.utcnow()
+    else:
+        # Convert timezone-aware datetime to UTC naive datetime
+        start_date = to_utc_naive(start_date)
+    
     if not end_date:
         end_date = start_date + timedelta(days=30)
+    else:
+        # Convert timezone-aware datetime to UTC naive datetime
+        end_date = to_utc_naive(end_date)
 
     bookings = await db.execute(
         select(Booking)
